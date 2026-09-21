@@ -4,6 +4,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%2024%2B-green.svg)](https://developer.android.com)
 [![Architecture](https://img.shields.io/badge/Architecture-ARM64--v8a%20%7C%20armeabi--v7a%20%7C%20x86__64-orange.svg)](#architecture)
 [![UI Framework](https://img.shields.io/badge/UI-Qt%206.6%20Quick%20%2F%20QML-41cd52.svg)](https://www.qt.io/)
+[![Privacy: Zero Telemetry](https://img.shields.io/badge/Privacy-Zero%20Telemetry-success.svg)](PRIVACY_POLICY.md)
 [![Upstream](https://img.shields.io/badge/Upstream-SwordigoDesktop-informational.svg)](https://github.com/TheAevoraLabs/SwordigoDesktop)
 
 Ruby Touch is a high-performance, standalone mobile 3D scene studio and terrain editor tailored for Swordigo modders and level designers. Built entirely in modern C++20 and Qt 6 with OpenGL ES 3.0, Ruby Touch brings precision 3D viewport navigation, interactive ground mesh vertex editing, and in-place biome texturing to Android devices.
@@ -103,6 +104,12 @@ Legal and license documentation is translated into 13 languages located in [.git
 
 - Indian Languages: Hindi, Bengali, Telugu, Tamil, Marathi, Gujarati
 - International Languages: Spanish, French, Chinese, German, Japanese, Russian, Portuguese
+
+---
+
+## Privacy Policy
+
+Ruby Touch respects user privacy and operates 100% offline. The software does not collect, store, transmit, or monetize any personal data, telemetry, or user analytics. Device permissions are strictly utilized for local file modding and haptic feedback. See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for our complete privacy policy.
 
 ---
 
