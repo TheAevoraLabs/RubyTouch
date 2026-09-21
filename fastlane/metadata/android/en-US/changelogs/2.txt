@@ -1,0 +1,1 @@
+Release 1.1: Complete ground mesh texture inspection, authentic biome presets, 3D vertex editing overhaul, 120Hz display refresh support, and dedicated mobile packaging.

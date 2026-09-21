@@ -1,0 +1,24 @@
+Ruby Touch is a standalone mobile 3D scene studio and terrain editor designed for Swordigo. Engineered natively in C++20 and Qt 6 with OpenGL ES 3.0 hardware acceleration, Ruby Touch delivers desktop-grade level editing and biome inspection directly on Android tablets and smartphones.
+
+Features:
+
+Touch Viewport Navigation
+Navigate 3D scenes fluidly using dual on-screen floating thumbsticks designed for handheld touch interaction. The camera controller supports translation, elevation, rotation, and distance panning with hardware-locked refresh rates up to 120Hz.
+
+Ground Mesh Studio
+Select, inspect, and edit terrain meshes directly inside the 3D viewport. Ruby Touch renders diamond vertex selection handles and wireframe outlines using hardware depth-tested shaders. Manipulate vertices in real time via ray-plane touch projection, add new control points, remove vertices, and apply structural mesh updates without geometric degradation.
+
+Biome Texture Inspector
+Inspect and modify terrain surface (cap/grass) and cliff (front/wall) textures in place. Switch between authentic presets derived from game scenes, including Plains, Forest, Grove, Florennum, Wasteland, Snowy Peaks, Ice Castle, Volcano, Caves, and Crypt. Create and persist custom modder biome presets via device storage.
+
+Scene and Entity Inspection
+Inspect spatial components, node hierarchies, dimension bounds, and object properties across binary scene structures. Place, translate, and orient entities directly on terrain surfaces.
+
+FileRift Bytecode and Scripting
+Integrated FileRift schema analyzer and syntax highlighter backed by an embedded ANSI C Lua engine for inspection and modification of level logic and event scripts.
+
+Technical Architecture
+Ruby Touch runs fully offline with zero network trackers, zero telemetry, and zero advertisements. Built on modern C++20, Qt 6.6 Quick/QML, and Android NDK r28.
+
+Free and Open Source
+Ruby Touch is free software released under the GNU General Public License v3.0 (GPLv3).

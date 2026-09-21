@@ -1,0 +1,42 @@
+# Build directories and binaries
+build/
+build-*/
+bin/
+binw/
+*.apk
+*.aab
+*.so
+*.dex
+*.zip
+*.tar.gz
+*.7z
+
+# Object files & archives
+*.o
+*.a
+*.obj
+*.lib
+
+# 3D large binary assets & temporary tests
+*.glb
+*.fbx
+*.blend
+*.blend1
+
+# Android & Gradle artifacts
+.gradle/
+local.properties
+.idea/
+*.iml
+.vscode/
+.cache/
+
+# Backups & temporary files
+*.bak
+*.tmp
+*.swp
+*~
+*.log
+.DS_Store
+__pycache__/
+*.pyc
