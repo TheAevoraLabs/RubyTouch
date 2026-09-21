@@ -135,7 +135,8 @@ for ABI in "${ABIS[@]}"; do
         -DCMAKE_FIND_ROOT_PATH="${QT_ABI_DIR}" \
         -DCMAKE_PREFIX_PATH="${QT_ABI_DIR}" \
         -DQT_HOST_PATH="${QT_HOST_DIR}" \
-        -DQt6_DIR="${QT_ABI_DIR}/lib/cmake/Qt6"
+        -DQt6_DIR="${QT_ABI_DIR}/lib/cmake/Qt6" \
+        -DRUBY_BUILD_VERSION="${RUBY_VERSION_NAME:-v1.1}"
 
     cmake --build "${ABI_BUILD_DIR}" --config Release -j"$(nproc)"
     echo "[✓] Native library built: ${ABI_BUILD_DIR}/libruby.so"
@@ -201,10 +202,23 @@ fi
 
 # Compile resources using aapt2
 "${AAPT2}" compile --dir "${SCRIPT_DIR}/res" -o "${BUILD_ROOT}/compiled_res.zip"
+
+VERSION_FLAGS=()
+if [ -n "${RUBY_VERSION_CODE:-}" ]; then
+    VERSION_FLAGS+=(--version-code "${RUBY_VERSION_CODE}")
+fi
+if [ -n "${RUBY_VERSION_NAME:-}" ]; then
+    VERSION_FLAGS+=(--version-name "${RUBY_VERSION_NAME}")
+fi
+if [ ${#VERSION_FLAGS[@]} -gt 0 ]; then
+    VERSION_FLAGS+=(--replace-version)
+fi
+
 "${AAPT2}" link -o "${BUILD_ROOT}/unaligned.apk" \
     -I "${ANDROID_JAR}" \
     --manifest "${SCRIPT_DIR}/AndroidManifest.xml" \
     -A "${PACKAGE_DIR}/assets" \
+    "${VERSION_FLAGS[@]:-}" \
     "${BUILD_ROOT}/compiled_res.zip" \
     --auto-add-overlay
 
@@ -250,9 +264,13 @@ done < <(find "${JAVA_OUT}" -name "*.class" -print0)
 (cd "${PACKAGE_DIR}" && zip -r -u "${BUILD_ROOT}/unaligned.apk" lib assets)
 
 # Align APK
-FINAL_APK="${PROJECT_ROOT}/bin/ruby_gg_mobile.apk"
+FINAL_APK_NAME="${RUBY_APK_NAME:-ruby_gg_mobile.apk}"
+FINAL_APK="${PROJECT_ROOT}/bin/${FINAL_APK_NAME}"
 mkdir -p "${PROJECT_ROOT}/bin"
 "${ZIPALIGN}" -f 4 "${BUILD_ROOT}/unaligned.apk" "${FINAL_APK}"
+if [ "${FINAL_APK_NAME}" != "ruby_gg_mobile.apk" ]; then
+    cp -f "${FINAL_APK}" "${PROJECT_ROOT}/bin/ruby_gg_mobile.apk"
+fi
 
 # Debug signing if keystore available or generate ephemeral debug key
 KEYSTORE="${BUILD_ROOT}/debug.keystore"

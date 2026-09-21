@@ -70,7 +70,11 @@ public:
     void setHapticsEnabled(bool val);
 
     int nameDatabaseCount() const;
+#ifdef RUBY_BUILD_VERSION
+    QString appVersion() const { return QStringLiteral(RUBY_BUILD_VERSION); }
+#else
     QString appVersion() const { return QStringLiteral("v1.1 (Swordigo Studio)"); }
+#endif
 
     QString copyrightHolder() const { return QStringLiteral("MrSinup"); }
     QString licenseName() const { return QStringLiteral("GNU General Public License v3.0"); }
