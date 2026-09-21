@@ -264,13 +264,10 @@ done < <(find "${JAVA_OUT}" -name "*.class" -print0)
 (cd "${PACKAGE_DIR}" && zip -r -u "${BUILD_ROOT}/unaligned.apk" lib assets)
 
 # Align APK
-FINAL_APK_NAME="${RUBY_APK_NAME:-ruby_gg_mobile.apk}"
+FINAL_APK_NAME="${RUBY_APK_NAME:-RubyTouch-arm64-v8a.apk}"
 FINAL_APK="${PROJECT_ROOT}/bin/${FINAL_APK_NAME}"
 mkdir -p "${PROJECT_ROOT}/bin"
 "${ZIPALIGN}" -f 4 "${BUILD_ROOT}/unaligned.apk" "${FINAL_APK}"
-if [ "${FINAL_APK_NAME}" != "ruby_gg_mobile.apk" ]; then
-    cp -f "${FINAL_APK}" "${PROJECT_ROOT}/bin/ruby_gg_mobile.apk"
-fi
 
 # Debug signing if keystore available or generate ephemeral debug key
 KEYSTORE="${BUILD_ROOT}/debug.keystore"
@@ -283,11 +280,11 @@ echo "[✓] Successfully built APK: ${FINAL_APK}"
 
 # Check for ADB device
 if "${ADB}" devices | grep -q -E "[a-zA-Z0-9_-]+\s+device$"; then
-    echo "Found connected ADB device. Installing..."
+    echo "[*] Connected Android device detected. Installing..."
     "${ADB}" install -r "${FINAL_APK}"
-    echo "[✓] Installed ruby_gg_mobile to device!"
-    echo "Launching in.aevora.ruby..."
-    "${ADB}" shell am start -n in.aevora.ruby/.RubyActivity || true
+    echo "[*] Launching Ruby Touch (Ruby Mobile)..."
+    "${ADB}" shell am start -n "in.aevora.ruby/.RubyActivity"
+    echo "[✓] Installed and launched Ruby Touch (Ruby Mobile) on device!"
 else
     echo "NOTE: No ADB device in 'device' state currently. Ensure USB debugging is ON."
 fi

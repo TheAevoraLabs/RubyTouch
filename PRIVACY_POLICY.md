@@ -1,8 +1,8 @@
-# Privacy Policy for Ruby Touch
+# Privacy Policy for Ruby Touch (Ruby Mobile)
 
 **Effective Date:** September 21, 2026  
 **Last Updated:** September 21, 2026  
-**Application Name:** Ruby Touch  
+**Application Name:** Ruby Touch (also known as Ruby Mobile)  
 **Package Name:** `in.aevora.ruby`  
 **Developer / Organization:** The Aevora Labs / OpenSwordigo Contributors  
 **Source Code:** [https://github.com/TheAevoraLabs/RubyTouch](https://github.com/TheAevoraLabs/RubyTouch)  
@@ -12,7 +12,7 @@
 
 ## 1. Introduction
 
-The Aevora Labs ("we", "us", or "our") develops and distributes **Ruby Touch** (`in.aevora.ruby`), a standalone, open-source 3D scene studio and terrain modding application for Android. 
+The Aevora Labs ("we", "us", or "our") develops and distributes **Ruby Touch** (also known as **Ruby Mobile**, package `in.aevora.ruby`), a standalone, open-source 3D scene studio and terrain modding application for Android. 
 
 We are committed to protecting your privacy. This Privacy Policy explains our practices regarding user data and clarifies how our application operates on your device.
 

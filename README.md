@@ -1,4 +1,4 @@
-# Ruby Touch
+# Ruby Touch (Ruby Mobile)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.md)
 [![Platform](https://img.shields.io/badge/Platform-Android%2024%2B-green.svg)](https://developer.android.com)
@@ -7,9 +7,9 @@
 [![Privacy: Zero Telemetry](https://img.shields.io/badge/Privacy-Zero%20Telemetry-success.svg)](PRIVACY_POLICY.md)
 [![Upstream](https://img.shields.io/badge/Upstream-SwordigoDesktop-informational.svg)](https://github.com/TheAevoraLabs/SwordigoDesktop)
 
-Ruby Touch is a high-performance, standalone mobile 3D scene studio and terrain editor tailored for Swordigo modders and level designers. Built entirely in modern C++20 and Qt 6 with OpenGL ES 3.0, Ruby Touch brings precision 3D viewport navigation, interactive ground mesh vertex editing, and in-place biome texturing to Android devices.
+Ruby Touch (also called **Ruby Mobile**, formerly Ruby GG Mobile) is a high-performance, standalone mobile 3D scene studio and terrain editor tailored for Swordigo modders and level designers. Built entirely in modern C++20 and Qt 6 with OpenGL ES 3.0, Ruby Touch brings precision 3D viewport navigation, interactive ground mesh vertex editing, and in-place biome texturing to Android devices.
 
-> **Upstream Project Notice**: Ruby Touch is the dedicated mobile distribution and mirror repository for the mobile 3D editor component of [SwordigoDesktop](https://github.com/TheAevoraLabs/SwordigoDesktop). All core engine improvements, tools, and bug fixes are maintained upstream and mirrored here for standalone mobile packaging and F-Droid distribution.
+> **Upstream Project Notice**: Ruby Touch (Ruby Mobile) is the dedicated mobile distribution and mirror repository for the mobile 3D editor component of [SwordigoDesktop](https://github.com/TheAevoraLabs/SwordigoDesktop). All core engine improvements, tools, and bug fixes are maintained upstream and mirrored here for standalone mobile packaging and F-Droid distribution.
 
 ---
 
@@ -94,7 +94,7 @@ cd RubyTouch
 ./build_android.sh --all-abis
 ```
 
-The compiled and signed APK will be output to bin/ruby_gg_mobile.apk. If an Android device is connected via ADB with USB debugging enabled, the script will automatically install and launch the application.
+The compiled and signed APK will be output to `bin/RubyTouch-arm64-v8a.apk`. If an Android device is connected via ADB with USB debugging enabled, the script will automatically install and launch the application.
 
 ---
 

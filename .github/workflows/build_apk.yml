@@ -191,7 +191,7 @@ jobs:
         if: steps.meta.outputs.is_release == 'true'
         with:
           tag_name: ${{ steps.meta.outputs.release_tag }}
-          name: "Ruby Touch ${{ steps.meta.outputs.release_tag }}"
+          name: "Ruby Touch (Ruby Mobile) ${{ steps.meta.outputs.release_tag }}"
           files: |
             bin/*.apk
             bin/SHA256SUMS.txt
