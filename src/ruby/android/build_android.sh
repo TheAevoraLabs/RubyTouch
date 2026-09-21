@@ -62,37 +62,69 @@ fi
 BUILD_ROOT="${PROJECT_ROOT}/build-android"
 mkdir -p "${BUILD_ROOT}"
 
+resolve_qt_abi_dir() {
+    local target_abi="$1"
+    local abi_normalized="${target_abi//-/_}"
+    local res=""
+
+    if [ -n "${QT_ROOT_DIR:-}" ] && [ -f "${QT_ROOT_DIR}/lib/cmake/Qt6/Qt6Config.cmake" ]; then
+        res="${QT_ROOT_DIR}"
+    elif [ -n "${QT_DIR:-}" ] && [ -f "${QT_DIR}/lib/cmake/Qt6/Qt6Config.cmake" ]; then
+        res="${QT_DIR}"
+    elif [ -n "${QT_DIR:-}" ] && [ -d "${QT_DIR}/6.6.3/android_${abi_normalized}" ]; then
+        res="${QT_DIR}/6.6.3/android_${abi_normalized}"
+    elif [ -n "${Qt6_DIR:-}" ] && [ -f "${Qt6_DIR}/Qt6Config.cmake" ]; then
+        res="$(cd "${Qt6_DIR}/../../.." && pwd)"
+    elif [ -d "${BUILD_ROOT}/qt6/6.6.3/android_${abi_normalized}" ]; then
+        res="${BUILD_ROOT}/qt6/6.6.3/android_${abi_normalized}"
+    elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_${abi_normalized}" ]; then
+        res="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_${abi_normalized}"
+    elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a" ]; then
+        res="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a"
+    fi
+
+    # Dynamic search fallback for CI environments (e.g. GitHub Actions runners)
+    if [ -z "${res}" ] || [ ! -f "${res}/lib/cmake/Qt6/Qt6Config.cmake" ]; then
+        local search_hit
+        search_hit="$(find /home/runner/work "${BUILD_ROOT}" /opt /usr -name "Qt6Config.cmake" 2>/dev/null | grep -E "android_${abi_normalized}|android" | head -n 1 || true)"
+        if [ -n "${search_hit}" ]; then
+            res="$(cd "$(dirname "${search_hit}")/../../.." && pwd)"
+        fi
+    fi
+
+    if [ -z "${res}" ] || [ ! -d "${res}" ]; then
+        res="${BUILD_ROOT}/qt6/6.6.3/android_arm64_v8a"
+    fi
+    echo "${res}"
+}
+
+resolve_qt_host_dir() {
+    local qt_abi="$1"
+    local res=""
+    if [ -n "${QT_HOST_PATH:-}" ] && [ -d "${QT_HOST_PATH}" ]; then
+        res="${QT_HOST_PATH}"
+    elif [ -d "${BUILD_ROOT}/qt6/6.6.3/gcc_64" ]; then
+        res="${BUILD_ROOT}/qt6/6.6.3/gcc_64"
+    elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/gcc_64" ]; then
+        res="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/gcc_64"
+    elif [ -n "${qt_abi}" ] && [ -d "${qt_abi}/../gcc_64" ]; then
+        res="$(cd "${qt_abi}/../gcc_64" && pwd)"
+    else
+        res="/usr"
+    fi
+    echo "${res}"
+}
+
 for ABI in "${ABIS[@]}"; do
     echo ""
     echo "--- Building native shared library for ${ABI} ---"
     ABI_BUILD_DIR="${BUILD_ROOT}/${ABI}"
     mkdir -p "${ABI_BUILD_DIR}"
 
-    QT_ABI_DIR="${BUILD_ROOT}/qt6/6.6.3/android_${ABI//-/_}"
-    if [ ! -d "${QT_ABI_DIR}" ]; then
-        if [ -n "${QT_DIR:-}" ] && [ -d "${QT_DIR}" ]; then
-            QT_ABI_DIR="${QT_DIR}"
-        elif [ -n "${Qt6_DIR:-}" ] && [ -d "${Qt6_DIR}/../../.." ]; then
-            QT_ABI_DIR="$(cd "${Qt6_DIR}/../../.." && pwd)"
-        elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_${ABI//-/_}" ]; then
-            QT_ABI_DIR="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_${ABI//-/_}"
-        elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a" ]; then
-            QT_ABI_DIR="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a"
-        else
-            QT_ABI_DIR="${BUILD_ROOT}/qt6/6.6.3/android_arm64_v8a"
-        fi
-    fi
-
-    QT_HOST_DIR="${BUILD_ROOT}/qt6/6.6.3/gcc_64"
-    if [ ! -d "${QT_HOST_DIR}" ]; then
-        if [ -n "${QT_HOST_PATH:-}" ] && [ -d "${QT_HOST_PATH}" ]; then
-            QT_HOST_DIR="${QT_HOST_PATH}"
-        elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/gcc_64" ]; then
-            QT_HOST_DIR="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/gcc_64"
-        else
-            QT_HOST_DIR="/usr"
-        fi
-    fi
+    QT_ABI_DIR="$(resolve_qt_abi_dir "${ABI}")"
+    QT_HOST_DIR="$(resolve_qt_host_dir "${QT_ABI_DIR}")"
+    echo "Qt6 Android ABI: ${QT_ABI_DIR}"
+    echo "Qt6 Host Path:   ${QT_HOST_DIR}"
 
     cmake -S "${SCRIPT_DIR}" -B "${ABI_BUILD_DIR}" \
         -DCMAKE_TOOLCHAIN_FILE="${TOOLCHAIN_FILE}" \
@@ -134,18 +166,7 @@ for ABI in "${ABIS[@]}"; do
     fi
 
     # 3. Qt shared libraries and plugins for this ABI
-    QT_ABI_DIR="${BUILD_ROOT}/qt6/6.6.3/android_${ABI//-/_}"
-    if [ ! -d "${QT_ABI_DIR}" ]; then
-        if [ -n "${QT_DIR:-}" ] && [ -d "${QT_DIR}" ]; then
-            QT_ABI_DIR="${QT_DIR}"
-        elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_${ABI//-/_}" ]; then
-            QT_ABI_DIR="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_${ABI//-/_}"
-        elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a" ]; then
-            QT_ABI_DIR="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a"
-        else
-            QT_ABI_DIR="${BUILD_ROOT}/qt6/6.6.3/android_arm64_v8a"
-        fi
-    fi
+    QT_ABI_DIR="$(resolve_qt_abi_dir "${ABI}")"
 
     echo "Copying Qt shared libraries from ${QT_ABI_DIR}/lib..."
     if [ -d "${QT_ABI_DIR}/lib" ]; then
@@ -172,12 +193,7 @@ done
 # Package QML assets into assets/qml
 echo "Packaging QML modules into assets/qml..."
 mkdir -p "${PACKAGE_DIR}/assets/qml"
-QT_QML_DIR="${QT_ABI_DIR}/qml"
-if [ ! -d "${QT_QML_DIR}" ] && [ -d "${BUILD_ROOT}/qt6/6.6.3/android_arm64_v8a/qml" ]; then
-    QT_QML_DIR="${BUILD_ROOT}/qt6/6.6.3/android_arm64_v8a/qml"
-elif [ ! -d "${QT_QML_DIR}" ] && [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a/qml" ]; then
-    QT_QML_DIR="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a/qml"
-fi
+QT_QML_DIR="$(resolve_qt_abi_dir "arm64-v8a")/qml"
 if [ -d "${QT_QML_DIR}" ]; then
     cp -r "${QT_QML_DIR}/"* "${PACKAGE_DIR}/assets/qml/"
     find "${PACKAGE_DIR}/assets/qml" -name "*.so" -delete
@@ -197,15 +213,9 @@ JAVA_OUT="${BUILD_ROOT}/java_classes"
 rm -rf "${JAVA_OUT}"
 mkdir -p "${JAVA_OUT}"
 
-QT_JAR_DIR="${QT_ABI_DIR}/jar"
-QT_SRC_DIR="${QT_ABI_DIR}/src/android/java/src"
-if [ ! -d "${QT_JAR_DIR}" ] && [ -d "${BUILD_ROOT}/qt6/6.6.3/android_arm64_v8a/jar" ]; then
-    QT_JAR_DIR="${BUILD_ROOT}/qt6/6.6.3/android_arm64_v8a/jar"
-    QT_SRC_DIR="${BUILD_ROOT}/qt6/6.6.3/android_arm64_v8a/src/android/java/src"
-elif [ ! -d "${QT_JAR_DIR}" ] && [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a/jar" ]; then
-    QT_JAR_DIR="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a/jar"
-    QT_SRC_DIR="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a/src/android/java/src"
-fi
+PRIMARY_QT_ABI="$(resolve_qt_abi_dir "arm64-v8a")"
+QT_JAR_DIR="${PRIMARY_QT_ABI}/jar"
+QT_SRC_DIR="${PRIMARY_QT_ABI}/src/android/java/src"
 
 QT_CP=""
 for j in "${QT_JAR_DIR}"/*.jar; do

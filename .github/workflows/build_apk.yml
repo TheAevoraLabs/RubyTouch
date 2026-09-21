@@ -56,7 +56,7 @@ jobs:
           export ANDROID_HOME=/usr/local/lib/android/sdk
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
           export ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/27.0.12077973
-          export QT_DIR="${{ env.Qt6_DIR }}"
+          export QT_DIR="${QT_ROOT_DIR:-}"
           chmod +x build_android.sh
           chmod +x src/ruby/android/build_android.sh
           ./build_android.sh
