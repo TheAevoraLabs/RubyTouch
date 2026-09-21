@@ -25,11 +25,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  metadata:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
+    outputs:
+      is_release: ${{ steps.meta.outputs.is_release }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      base_version: ${{ steps.meta.outputs.base_version }}
+      version_name: ${{ steps.meta.outputs.version_name }}
+      version_code_base: ${{ steps.meta.outputs.version_code_base }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+      build_num: ${{ steps.meta.outputs.build_num }}
+      build_date: ${{ steps.meta.outputs.build_date }}
 
     steps:
       - name: Checkout Repository
@@ -43,23 +49,17 @@ jobs:
           EVENT_COMMIT_MSG: ${{ github.event.head_commit.message }}
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
-          # 1. Base version from AndroidManifest.xml
-          BASE_VERSION="$(grep -o 'android:versionName="[^"]*"' src/ruby/android/AndroidManifest.xml | head -n1 | cut -d'"' -f2 || echo "1.1")"
+          BASE_VERSION="$(grep -o 'android:versionName="[^"]*"' src/ruby/android/AndroidManifest.xml | head -n1 | cut -d'"' -f2 || echo "1.2")"
           MAJOR="$(echo "$BASE_VERSION" | cut -d. -f1)"
           MINOR="$(echo "$BASE_VERSION" | cut -d. -f2)"
           MAJOR="${MAJOR:-1}"
-          MINOR="${MINOR:-1}"
+          MINOR="${MINOR:-2}"
 
-          # 2. Monotonically increasing build tracker from GitHub Actions
           BUILD_NUM="${{ github.run_number }}"
-          VERSION_CODE=$(( MAJOR * 100000 + MINOR * 1000 + BUILD_NUM ))
+          BASE_CODE=$(( MAJOR * 100000 + MINOR * 1000 + BUILD_NUM ))
           SHORT_SHA="$(echo "${{ github.sha }}" | cut -c1-7)"
           BUILD_DATE="$(date -u +%Y%m%d)"
 
-          # 3. Detect release trigger:
-          #    a) Git tag push (v*)
-          #    b) Manual workflow dispatch with force_release=true
-          #    c) Commit message contains [release] or [release vX.Y]
           COMMIT_MSG="${EVENT_COMMIT_MSG:-}"
           if [ -z "$COMMIT_MSG" ]; then
               COMMIT_MSG="$(git log -1 --pretty=%B 2>/dev/null || true)"
@@ -96,25 +96,18 @@ jobs:
 
           if [ "$IS_RELEASE" = "true" ]; then
               VERSION_NAME="${CLEAN_VERSION}"
-              APK_CANONICAL_NAME="RubyTouch-${RELEASE_TAG}-arm64-v8a.apk"
               DISPLAY_VERSION="${RELEASE_TAG}"
-              ARTIFACT_NAME="RubyTouch-${RELEASE_TAG}-arm64-v8a"
           else
-              # Version-backed in-between dev / beta build: e.g. 1.1b14-daba4ec
               VERSION_NAME="${BASE_VERSION}b${BUILD_NUM}-${SHORT_SHA}"
-              APK_CANONICAL_NAME="RubyTouch-v${BASE_VERSION}-b${BUILD_NUM}-${SHORT_SHA}-arm64-v8a.apk"
               DISPLAY_VERSION="v${BASE_VERSION}-b${BUILD_NUM} (${SHORT_SHA})"
-              ARTIFACT_NAME="RubyTouch-v${BASE_VERSION}-b${BUILD_NUM}-${SHORT_SHA}"
           fi
 
           echo "is_release=${IS_RELEASE}" >> $GITHUB_OUTPUT
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
           echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
           echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
-          echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
-          echo "apk_canonical_name=${APK_CANONICAL_NAME}" >> $GITHUB_OUTPUT
+          echo "version_code_base=${BASE_CODE}" >> $GITHUB_OUTPUT
           echo "display_version=${DISPLAY_VERSION}" >> $GITHUB_OUTPUT
-          echo "artifact_name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "build_num=${BUILD_NUM}" >> $GITHUB_OUTPUT
           echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
@@ -122,13 +115,70 @@ jobs:
           echo "============================================="
           echo "  Build Tracker:     #${BUILD_NUM}"
           echo "  Base Version:      ${BASE_VERSION}"
-          echo "  Version Code:      ${VERSION_CODE}"
+          echo "  Base Code:         ${BASE_CODE}"
           echo "  Version Name:      ${VERSION_NAME}"
-          echo "  APK Name:          ${APK_CANONICAL_NAME}"
-          echo "  Artifact Name:     ${ARTIFACT_NAME}"
           echo "  Is Official Rel:   ${IS_RELEASE}"
           echo "  Release Tag:       ${RELEASE_TAG}"
           echo "============================================="
+
+  build:
+    needs: metadata
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            qt_arch: android_arm64_v8a
+            abi_code: 4
+            arch_label: "ARM64 v8a (64-bit)"
+          - abi: armeabi-v7a
+            qt_arch: android_armv7
+            abi_code: 2
+            arch_label: "ARMv7 (32-bit)"
+          - abi: x86_64
+            qt_arch: android_x86_64
+            abi_code: 6
+            arch_label: "x86_64 (64-bit)"
+          - abi: x86
+            qt_arch: android_x86
+            abi_code: 3
+            arch_label: "x86 (32-bit)"
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Compute ABI Specific Metadata
+        id: abi_meta
+        run: |
+          ABI="${{ matrix.abi }}"
+          ABI_CODE="${{ matrix.abi_code }}"
+          BASE_CODE="${{ needs.metadata.outputs.version_code_base }}"
+          VERSION_CODE=$(( BASE_CODE * 10 + ABI_CODE ))
+
+          IS_RELEASE="${{ needs.metadata.outputs.is_release }}"
+          RELEASE_TAG="${{ needs.metadata.outputs.release_tag }}"
+          BASE_VER="${{ needs.metadata.outputs.base_version }}"
+          BUILD_NUM="${{ needs.metadata.outputs.build_num }}"
+          SHORT_SHA="${{ needs.metadata.outputs.short_sha }}"
+
+          if [ "$IS_RELEASE" = "true" ]; then
+              APK_FILE="RubyTouch-${RELEASE_TAG}-${ABI}.apk"
+              ARTIFACT_NAME="RubyTouch-${RELEASE_TAG}-${ABI}"
+          else
+              APK_FILE="RubyTouch-v${BASE_VER}-b${BUILD_NUM}-${SHORT_SHA}-${ABI}.apk"
+              ARTIFACT_NAME="RubyTouch-v${BASE_VER}-b${BUILD_NUM}-${SHORT_SHA}-${ABI}"
+          fi
+
+          echo "version_code=${VERSION_CODE}" >> $GITHUB_OUTPUT
+          echo "apk_file=${APK_FILE}" >> $GITHUB_OUTPUT
+          echo "artifact_name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
+
+          echo "Target ABI:        ${ABI}"
+          echo "Version Code:      ${VERSION_CODE}"
+          echo "Output APK:        ${APK_FILE}"
+          echo "Artifact:          ${ARTIFACT_NAME}"
 
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
@@ -148,13 +198,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ninja-build cmake zip zipalign apksigner
 
-      - name: Install Qt 6.6.3 for Android
+      - name: Install Qt 6.6.3 for ${{ matrix.arch_label }}
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.6.3'
           host: 'linux'
           target: 'android'
-          arch: 'android_arm64_v8a'
+          arch: '${{ matrix.qt_arch }}'
           modules: 'qtimageformats qtshadertools'
           cache: true
 
@@ -164,35 +214,65 @@ jobs:
           export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
           export ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/27.0.12077973
           export QT_DIR="${QT_ROOT_DIR:-}"
-          export RUBY_VERSION_NAME="${{ steps.meta.outputs.version_name }}"
-          export RUBY_VERSION_CODE="${{ steps.meta.outputs.version_code }}"
-          export RUBY_APK_NAME="${{ steps.meta.outputs.apk_canonical_name }}"
+          export RUBY_TARGET_ABI="${{ matrix.abi }}"
+          export RUBY_VERSION_NAME="${{ needs.metadata.outputs.version_name }}"
+          export RUBY_VERSION_CODE="${{ steps.abi_meta.outputs.version_code }}"
+          export RUBY_APK_NAME="${{ steps.abi_meta.outputs.apk_file }}"
+
           chmod +x build_android.sh
           chmod +x src/ruby/android/build_android.sh
-          ./build_android.sh
+          ./build_android.sh --abi "${{ matrix.abi }}"
 
-          # Generate SHA256 checksums manifest
           cd bin
           sha256sum *.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Upload APK Artifact
+      - name: Upload Single APK Artifact
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: ${{ steps.meta.outputs.artifact_name }}
+          name: ${{ steps.abi_meta.outputs.artifact_name }}
           path: |
             bin/*.apk
             bin/SHA256SUMS.txt
-          if-no-files-found: warn
+          if-no-files-found: error
+
+  release:
+    needs: [metadata, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Download All APK Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_apks
+          merge-multiple: true
+
+      - name: Generate Consolidated Checksums
+        run: |
+          mkdir -p dist
+          find all_apks -name "*.apk" -exec cp {} dist/ \;
+          cd dist
+          sha256sum *.apk > SHA256SUMS.txt
+          echo "Consolidated Checksums:"
+          cat SHA256SUMS.txt
+
+      - name: Upload All Architecture APKs Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: RubyTouch-${{ needs.metadata.outputs.version_name }}-all-apks
+          path: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
 
       - name: Publish Official GitHub Release
         uses: softprops/action-gh-release@v2
-        if: steps.meta.outputs.is_release == 'true'
+        if: needs.metadata.outputs.is_release == 'true'
         with:
-          tag_name: ${{ steps.meta.outputs.release_tag }}
-          name: "Ruby Touch (Ruby Mobile) ${{ steps.meta.outputs.release_tag }}"
+          tag_name: ${{ needs.metadata.outputs.release_tag }}
+          name: "Ruby Touch (Ruby Mobile) ${{ needs.metadata.outputs.release_tag }}"
           files: |
-            bin/*.apk
-            bin/SHA256SUMS.txt
+            dist/*.apk
+            dist/SHA256SUMS.txt
           generate_release_notes: true

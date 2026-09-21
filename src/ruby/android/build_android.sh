@@ -53,10 +53,28 @@ echo "NDK:        ${ANDROID_NDK_ROOT}"
 echo "BuildTools: ${BUILD_TOOLS_DIR}"
 echo "Platform:   android-36"
 
-# Supported ABIs (arm64-v8a is primary, with armeabi-v7a and x86_64 support)
+# Supported ABIs: arm64-v8a (default), armeabi-v7a (arm32), x86_64, x86
+TARGET_ABI="${RUBY_TARGET_ABI:-}"
 ABIS=("arm64-v8a")
-if [[ "${1:-}" == "--all-abis" ]]; then
-    ABIS=("arm64-v8a" "armeabi-v7a" "x86_64")
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --abi)
+            TARGET_ABI="$2"
+            shift 2
+            ;;
+        --all-abis)
+            ABIS=("arm64-v8a" "armeabi-v7a" "x86_64" "x86")
+            shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+if [ -n "${TARGET_ABI}" ]; then
+    ABIS=("${TARGET_ABI}")
 fi
 
 BUILD_ROOT="${PROJECT_ROOT}/build-android"
@@ -65,28 +83,34 @@ mkdir -p "${BUILD_ROOT}"
 resolve_qt_abi_dir() {
     local target_abi="$1"
     local abi_normalized="${target_abi//-/_}"
+    local qt_arch_name="android_${abi_normalized}"
+    if [[ "${target_abi}" == "armeabi-v7a" ]]; then
+        qt_arch_name="android_armv7"
+    fi
     local res=""
 
     if [ -n "${QT_ROOT_DIR:-}" ] && [ -f "${QT_ROOT_DIR}/lib/cmake/Qt6/Qt6Config.cmake" ]; then
         res="${QT_ROOT_DIR}"
     elif [ -n "${QT_DIR:-}" ] && [ -f "${QT_DIR}/lib/cmake/Qt6/Qt6Config.cmake" ]; then
         res="${QT_DIR}"
+    elif [ -n "${QT_DIR:-}" ] && [ -d "${QT_DIR}/6.6.3/${qt_arch_name}" ]; then
+        res="${QT_DIR}/6.6.3/${qt_arch_name}"
     elif [ -n "${QT_DIR:-}" ] && [ -d "${QT_DIR}/6.6.3/android_${abi_normalized}" ]; then
         res="${QT_DIR}/6.6.3/android_${abi_normalized}"
     elif [ -n "${Qt6_DIR:-}" ] && [ -f "${Qt6_DIR}/Qt6Config.cmake" ]; then
         res="$(cd "${Qt6_DIR}/../../.." && pwd)"
-    elif [ -d "${BUILD_ROOT}/qt6/6.6.3/android_${abi_normalized}" ]; then
-        res="${BUILD_ROOT}/qt6/6.6.3/android_${abi_normalized}"
+    elif [ -d "${BUILD_ROOT}/qt6/6.6.3/${qt_arch_name}" ]; then
+        res="${BUILD_ROOT}/qt6/6.6.3/${qt_arch_name}"
+    elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/${qt_arch_name}" ]; then
+        res="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/${qt_arch_name}"
     elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_${abi_normalized}" ]; then
         res="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_${abi_normalized}"
-    elif [ -d "/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a" ]; then
-        res="/home/quantumcreeper/SwordigoDesktop/build-android/qt6/6.6.3/android_arm64_v8a"
     fi
 
     # Dynamic search fallback for CI environments (e.g. GitHub Actions runners)
     if [ -z "${res}" ] || [ ! -f "${res}/lib/cmake/Qt6/Qt6Config.cmake" ]; then
         local search_hit
-        search_hit="$(find /home/runner/work "${BUILD_ROOT}" /opt /usr -name "Qt6Config.cmake" 2>/dev/null | grep -E "android_${abi_normalized}|android" | head -n 1 || true)"
+        search_hit="$(find /home/runner/work "${BUILD_ROOT}" /opt /usr -name "Qt6Config.cmake" 2>/dev/null | grep -E "${qt_arch_name}|android_${abi_normalized}|android" | head -n 1 || true)"
         if [ -n "${search_hit}" ]; then
             res="$(cd "$(dirname "${search_hit}")/../../.." && pwd)"
         fi
@@ -164,6 +188,8 @@ for ABI in "${ABIS[@]}"; do
         cp "${LIBCXX}/arm-linux-androideabi/libc++_shared.so" "${PACKAGE_DIR}/lib/${ABI}/"
     elif [[ "${ABI}" == "x86_64" ]]; then
         cp "${LIBCXX}/x86_64-linux-android/libc++_shared.so" "${PACKAGE_DIR}/lib/${ABI}/"
+    elif [[ "${ABI}" == "x86" ]]; then
+        cp "${LIBCXX}/i686-linux-android/libc++_shared.so" "${PACKAGE_DIR}/lib/${ABI}/"
     fi
 
     # 3. Qt shared libraries and plugins for this ABI
@@ -194,7 +220,7 @@ done
 # Package QML assets into assets/qml
 echo "Packaging QML modules into assets/qml..."
 mkdir -p "${PACKAGE_DIR}/assets/qml"
-QT_QML_DIR="$(resolve_qt_abi_dir "arm64-v8a")/qml"
+QT_QML_DIR="$(resolve_qt_abi_dir "${ABIS[0]}")/qml"
 if [ -d "${QT_QML_DIR}" ]; then
     cp -r "${QT_QML_DIR}/"* "${PACKAGE_DIR}/assets/qml/"
     find "${PACKAGE_DIR}/assets/qml" -name "*.so" -delete
@@ -264,7 +290,7 @@ done < <(find "${JAVA_OUT}" -name "*.class" -print0)
 (cd "${PACKAGE_DIR}" && zip -r -u "${BUILD_ROOT}/unaligned.apk" lib assets)
 
 # Align APK
-FINAL_APK_NAME="${RUBY_APK_NAME:-RubyTouch-arm64-v8a.apk}"
+FINAL_APK_NAME="${RUBY_APK_NAME:-RubyTouch-${ABIS[0]}.apk}"
 FINAL_APK="${PROJECT_ROOT}/bin/${FINAL_APK_NAME}"
 mkdir -p "${PROJECT_ROOT}/bin"
 "${ZIPALIGN}" -f 4 "${BUILD_ROOT}/unaligned.apk" "${FINAL_APK}"

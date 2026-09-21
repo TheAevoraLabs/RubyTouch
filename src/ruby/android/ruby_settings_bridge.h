@@ -75,7 +75,7 @@ public:
 #ifdef RUBY_BUILD_VERSION
     QString appVersion() const { return QStringLiteral(RUBY_BUILD_VERSION); }
 #else
-    QString appVersion() const { return QStringLiteral("v1.1 (Ruby Mobile)"); }
+    QString appVersion() const { return QStringLiteral("v1.2 (Ruby Mobile)"); }
 #endif
 
     QString copyrightHolder() const { return QStringLiteral("MrSinup"); }

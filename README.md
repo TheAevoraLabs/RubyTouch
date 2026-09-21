@@ -2,14 +2,17 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.md)
 [![Platform](https://img.shields.io/badge/Platform-Android%2024%2B-green.svg)](https://developer.android.com)
-[![Architecture](https://img.shields.io/badge/Architecture-ARM64--v8a%20%7C%20armeabi--v7a%20%7C%20x86__64-orange.svg)](#architecture)
+[![Architecture](https://img.shields.io/badge/Architecture-ARM64--v8a%20%7C%20ARMv7%20(arm32)%20%7C%20x86__64%20%7C%20x86-orange.svg)](#multi-architecture-support)
 [![UI Framework](https://img.shields.io/badge/UI-Qt%206.6%20Quick%20%2F%20QML-41cd52.svg)](https://www.qt.io/)
+[![Version](https://img.shields.io/badge/Version-v1.2-blue.svg)](https://github.com/TheAevoraLabs/RubyTouch/releases)
 [![Privacy: Zero Telemetry](https://img.shields.io/badge/Privacy-Zero%20Telemetry-success.svg)](PRIVACY_POLICY.md)
 [![Upstream](https://img.shields.io/badge/Upstream-SwordigoDesktop-informational.svg)](https://github.com/TheAevoraLabs/SwordigoDesktop)
 
 Ruby Touch (also called **Ruby Mobile**, formerly Ruby GG Mobile) is a high-performance, standalone mobile 3D scene studio and terrain editor tailored for Swordigo modders and level designers. Built entirely in modern C++20 and Qt 6 with OpenGL ES 3.0, Ruby Touch brings precision 3D viewport navigation, interactive ground mesh vertex editing, and in-place biome texturing to Android devices.
 
 > **Upstream Project Notice**: Ruby Touch (Ruby Mobile) is the dedicated mobile distribution and mirror repository for the mobile 3D editor component of [SwordigoDesktop](https://github.com/TheAevoraLabs/SwordigoDesktop). All core engine improvements, tools, and bug fixes are maintained upstream and mirrored here for standalone mobile packaging and F-Droid distribution.
+
+> **v1.2 Architecture Redesign**: v1.2 introduces comprehensive multi-architecture split APK distribution, bringing native device compatibility across 64-bit ARM (`arm64-v8a`), 32-bit legacy ARM (`armeabi-v7a`), 64-bit x86 (`x86_64`), and 32-bit x86 (`x86`) Android devices and emulators. Each architecture is packaged as an independent, lightweight APK with optimized native binaries and stripped symbol tables.
 
 ---
 
@@ -87,14 +90,30 @@ RubyTouch/
 git clone https://github.com/TheAevoraLabs/RubyTouch.git
 cd RubyTouch
 
-# Build native shared libraries and package the APK
-./build_android.sh
+# Build for specific architecture:
+./build_android.sh --abi arm64-v8a    # 64-bit ARM
+./build_android.sh --abi armeabi-v7a  # 32-bit ARM (ARMv7)
+./build_android.sh --abi x86_64       # 64-bit x86 (emulators / Chromebooks)
+./build_android.sh --abi x86          # 32-bit x86
 
-# Or build for all architectures (arm64-v8a, armeabi-v7a, x86_64)
+# Or build for all architectures sequentially:
 ./build_android.sh --all-abis
 ```
 
-The compiled and signed APK will be output to `bin/RubyTouch-arm64-v8a.apk`. If an Android device is connected via ADB with USB debugging enabled, the script will automatically install and launch the application.
+The compiled and signed APK will be output to `bin/RubyTouch-<ABI>.apk`. If an Android device is connected via ADB with USB debugging enabled, the script will automatically install and launch the application.
+
+---
+
+## Multi-Architecture Support & Split APKs
+
+Ruby Touch v1.2 is packaged as distinct, architecture-specific standalone APKs to minimize storage overhead and maximize execution efficiency on every class of hardware:
+
+| Architecture | Android ABI | Target Hardware | APK Filename |
+| :--- | :--- | :--- | :--- |
+| **ARM 64-bit** | `arm64-v8a` | Modern Android smartphones & tablets (2016+) | `RubyTouch-v1.2-arm64-v8a.apk` |
+| **ARM 32-bit** | `armeabi-v7a` | Legacy budget smartphones, older tablets | `RubyTouch-v1.2-armeabi-v7a.apk` |
+| **x86 64-bit** | `x86_64` | Android emulators, ChromeOS / Chromebooks | `RubyTouch-v1.2-x86_64.apk` |
+| **x86 32-bit** | `x86` | Older x86 virtualization & emulators | `RubyTouch-v1.2-x86.apk` |
 
 ---
 
