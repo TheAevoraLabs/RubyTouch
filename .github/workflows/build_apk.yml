@@ -22,8 +22,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
@@ -31,15 +29,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK & NDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android Build-Tools and NDK
+      - name: Configure Android SDK & NDK
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platforms;android-34" "build-tools;35.0.0" "ndk;27.0.12077973"
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;35.0.0" "ndk;27.0.12077973"
 
-      - name: Install Ninja & Tools
+      - name: Install Build Tools
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build cmake zip zipalign apksigner
@@ -55,25 +52,14 @@ jobs:
           cache: true
 
       - name: Build and Package APK
-        env:
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
-          ANDROID_NDK_ROOT: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
-          QT_DIR: ${{ env.Qt6_DIR }}
         run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
+          export ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/27.0.12077973
+          export QT_DIR="${{ env.Qt6_DIR }}"
           chmod +x build_android.sh
-          # Run build using CI environment paths
-          ./build_android.sh || {
-            echo "Direct script build failed, falling back to CMake package configuration..."
-            cmake -S src/ruby/android -B build-ci \
-              -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake \
-              -DANDROID_ABI=arm64-v8a \
-              -DANDROID_PLATFORM=android-24 \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DANDROID_STL=c++_shared \
-              -DCMAKE_FIND_ROOT_PATH="${QT_DIR}" \
-              -DCMAKE_PREFIX_PATH="${QT_DIR}"
-            cmake --build build-ci --config Release -j$(nproc)
-          }
+          chmod +x src/ruby/android/build_android.sh
+          ./build_android.sh
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -82,7 +68,6 @@ jobs:
           name: RubyTouch-v1.1-arm64-v8a
           path: |
             bin/*.apk
-            build-android/*.apk
           if-no-files-found: warn
 
       - name: Upload to GitHub Release (Tags Only)
