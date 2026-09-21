@@ -77,9 +77,9 @@ jobs:
               if [ -z "$RELEASE_TAG" ]; then
                   RELEASE_TAG="v${BASE_VERSION}"
               fi
-          elif echo "$COMMIT_MSG" | grep -qiE '\[release[^\]]*\]'; then
+          elif echo "$COMMIT_MSG" | grep -qiE '\[release[^]]*\]'; then
               IS_RELEASE=true
-              CUSTOM_TAG="$(echo "$COMMIT_MSG" | grep -oiE '\[release\s+v?[0-9.]+\]' | head -n1 | tr -d '[]' | awk '{print $2}' || true)"
+              CUSTOM_TAG="$(echo "$COMMIT_MSG" | grep -oiE '\[release[^]]*\]' | head -n1 | tr -d '[]' | awk '{print $2}' || true)"
               if [ -n "$CUSTOM_TAG" ]; then
                   if [[ "$CUSTOM_TAG" =~ ^v ]]; then
                       RELEASE_TAG="$CUSTOM_TAG"
