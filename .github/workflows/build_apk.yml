@@ -48,7 +48,7 @@ jobs:
           host: 'linux'
           target: 'android'
           arch: 'android_arm64_v8a'
-          modules: 'qtquickcontrols2 qtsvg'
+          modules: 'qtimageformats qtshadertools'
           cache: true
 
       - name: Build and Package APK
