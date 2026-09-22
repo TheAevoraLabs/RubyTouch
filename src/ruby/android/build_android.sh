@@ -175,7 +175,7 @@ for ABI in "${ABIS[@]}"; do
         -DCMAKE_PREFIX_PATH="${QT_ABI_DIR}" \
         -DQT_HOST_PATH="${QT_HOST_DIR}" \
         -DQt6_DIR="${QT_ABI_DIR}/lib/cmake/Qt6" \
-        -DRUBY_BUILD_VERSION="${RUBY_VERSION_NAME:-v1.1}"
+        -DRUBY_BUILD_VERSION="${RUBY_VERSION_NAME:-v1.3}"
 
     cmake --build "${ABI_BUILD_DIR}" --config Release -j"$(nproc)"
     LIBRUBY_SO="$(find "${ABI_BUILD_DIR}" -name "libruby.so" | head -n 1)"
@@ -200,6 +200,17 @@ for ABI in "${ABIS[@]}"; do
     fi
     cp "${LIBRUBY_SO}" "${PACKAGE_DIR}/lib/${ABI}/libruby.so"
     cp "${LIBRUBY_SO}" "${PACKAGE_DIR}/lib/${ABI}/libruby_${ABI}.so"
+
+    # 1b. In-Engine Swordigo Runner and GlossHook libraries
+    LIBRUBY_RUNNER_SO="$(find "${BUILD_ROOT}/${ABI}" -name "libruby_runner.so" | head -n 1)"
+    if [ -n "${LIBRUBY_RUNNER_SO}" ] && [ -f "${LIBRUBY_RUNNER_SO}" ]; then
+        cp "${LIBRUBY_RUNNER_SO}" "${PACKAGE_DIR}/lib/${ABI}/libruby_runner.so"
+        echo "[✓] Copied libruby_runner.so for ${ABI}"
+    fi
+    if [ -f "${ANDROID_SRC_DIR}/libs/${ABI}/libGlossHook.so" ]; then
+        cp "${ANDROID_SRC_DIR}/libs/${ABI}/libGlossHook.so" "${PACKAGE_DIR}/lib/${ABI}/libGlossHook.so"
+        echo "[✓] Copied libGlossHook.so for ${ABI}"
+    fi
 
     # 2. NDK libc++_shared.so
     LIBCXX="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib"
@@ -287,7 +298,10 @@ for j in "${QT_JAR_DIR}"/*.jar; do
     fi
 done
 
-JAVA_SRCS=("${ANDROID_SRC_DIR}/java/in/aevora/ruby/RubyActivity.java")
+JAVA_SRCS=()
+while IFS= read -r -d '' src; do
+    JAVA_SRCS+=("${src}")
+done < <(find "${ANDROID_SRC_DIR}/java" -name "*.java" -print0)
 while IFS= read -r -d '' src; do
     JAVA_SRCS+=("${src}")
 done < <(find "${QT_SRC_DIR}" -name "*.java" -print0)

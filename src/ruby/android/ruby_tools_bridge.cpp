@@ -6,12 +6,15 @@
 #include "tools/fbx_import.h"
 #include "tools/obj_loader.h"
 #include "tools/boulder.h"
+#include "tools/boulderx.h"
+#include "tools/swdm_format.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QImage>
 #include <QThread>
 #include <algorithm>
+#include <cmath>
 
 namespace ruby::android {
 
@@ -367,6 +370,207 @@ bool RubyToolsBridge::exportSwdm(const QString& filePath, const QVariantList& po
     m_lastStatus = QStringLiteral("Exported Ground Mesh to %1").arg(filePath);
     emit statusChanged();
     return true;
+}
+
+namespace {
+
+// `points` entries are {x, y} with optional per-node {front, back} depths.
+// Missing depths fall back to the sheet's scalar pair, which is how a sheet that
+// was never given relief (or a legacy file) becomes a uniform slab.
+std::vector<boulderx::Node> outline_from_points(const QVariantList& points,
+                                                double scalar_front, double scalar_back) {
+    std::vector<boulderx::Node> outline;
+    outline.reserve(points.size());
+    for (const auto& item : points) {
+        const QVariantMap map = item.toMap();
+        boulderx::Node n;
+        n.x = map.value(QStringLiteral("x"), 0.0).toDouble();
+        n.y = map.value(QStringLiteral("y"), 0.0).toDouble();
+        n.front_depth = map.contains(QStringLiteral("front"))
+                            ? map.value(QStringLiteral("front")).toDouble()
+                            : scalar_front;
+        n.back_depth = map.contains(QStringLiteral("back"))
+                           ? map.value(QStringLiteral("back")).toDouble()
+                           : scalar_back;
+        outline.push_back(n);
+    }
+    return outline;
+}
+
+bool outline_has_relief(const std::vector<boulderx::Node>& outline) {
+    if (outline.empty()) return false;
+    for (const auto& n : outline) {
+        if (std::fabs(n.front_depth - outline[0].front_depth) > 1e-6 ||
+            std::fabs(n.back_depth - outline[0].back_depth) > 1e-6)
+            return true;
+    }
+    return false;
+}
+
+} // namespace
+
+QVariantMap RubyToolsBridge::exportGroundMeshSheet(const QVariantMap& sheet) {
+    QVariantMap res;
+    res[QStringLiteral("ok")] = false;
+    res[QStringLiteral("path")] = sheet.value(QStringLiteral("path"));
+    res[QStringLiteral("generator")] = QStringLiteral("boulder");
+
+    const QVariantList points = sheet.value(QStringLiteral("points")).toList();
+    if (points.size() < 3) {
+        res[QStringLiteral("message")] = QStringLiteral("A sheet needs at least 3 vertices");
+        return res;
+    }
+
+    const double min_depth = sheet.value(QStringLiteral("minDepth"), -45.0).toDouble();
+    const double max_depth = sheet.value(QStringLiteral("maxDepth"), 45.0).toDouble();
+    const double front = std::max(min_depth, max_depth);
+    const double back = std::min(min_depth, max_depth);
+    const std::string top_tex =
+        sheet.value(QStringLiteral("topTexture"), "fire_grass").toString().toStdString();
+    const std::string front_tex =
+        sheet.value(QStringLiteral("frontTexture"), "graveyard_ground").toString().toStdString();
+    const std::string identifier =
+        sheet.value(QStringLiteral("identifier"), "ground").toString().toStdString();
+
+    const std::vector<boulderx::Node> outline = outline_from_points(points, front, back);
+    const bool relief = outline_has_relief(outline);
+    const bool want_boulderx =
+        sheet.value(QStringLiteral("generator"), QStringLiteral("boulder")).toString()
+            == QStringLiteral("boulderx") ||
+        boulderx::ground_generator() == boulderx::GroundGenerator::BoulderX;
+
+    // Dialect: per-node depth can only be written by boulderx (v2). A uniform
+    // sheet in Boulder mode stays v1 so every generator and every other tool can
+    // still read it.
+    std::string text;
+    const bool write_v2 = relief || want_boulderx;
+    if (write_v2) {
+        boulderx::SwdmDocument doc;
+        doc.identifier = identifier;
+        doc.outline = outline;
+        doc.params.mesh_type = sheet.value(QStringLiteral("meshType"), 1).toInt();
+        doc.params.surface_width = sheet.value(QStringLiteral("surfaceWidth"), 80.0).toDouble();
+        doc.params.horiz_noise = sheet.value(QStringLiteral("horizNoise"), 0.0).toDouble();
+        doc.params.random_seed = uint32_t(
+            sheet.value(QStringLiteral("randomSeed"), 1291618994).toUInt());
+        doc.params.surface_texture = top_tex;
+        doc.params.front_texture = front_tex;
+        text = boulderx::serialize_swdm(doc);
+        res[QStringLiteral("generator")] = QStringLiteral("boulderx");
+    } else {
+        boulder::GroundMesh gm;
+        for (const auto& p : outline) gm.polygon.push_back({p.x, p.y});
+        boulder::ensure_ccw(gm.polygon);
+        gm.min_depth = back;
+        gm.max_depth = front;
+        gm.surface_width = sheet.value(QStringLiteral("surfaceWidth"), 80.0).toDouble();
+        gm.top_texture = top_tex;
+        gm.bottom_texture = front_tex;
+        gm.z = sheet.value(QStringLiteral("z"), 0.0).toDouble();
+        text = boulder::serialize_swdm(gm);
+    }
+
+    const QString path = sheet.value(QStringLiteral("path")).toString();
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        res[QStringLiteral("message")] =
+            QStringLiteral("Could not write %1").arg(path);
+        m_lastStatus = res[QStringLiteral("message")].toString();
+        emit statusChanged();
+        return res;
+    }
+    file.write(text.c_str(), qint64(text.size()));
+    file.close();
+
+    res[QStringLiteral("ok")] = true;
+    res[QStringLiteral("message")] = write_v2
+        ? QStringLiteral("Exported BoulderX sheet (per-node Z) → %1").arg(path)
+        : QStringLiteral("Exported sheet → %1").arg(path);
+    m_lastStatus = res[QStringLiteral("message")].toString();
+    emit statusChanged();
+    return res;
+}
+
+QVariantMap RubyToolsBridge::importGroundMeshSheet(const QString& filePath) {
+    QVariantMap res;
+    res[QStringLiteral("ok")] = false;
+    res[QStringLiteral("dialect")] = QStringLiteral("boulder");
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        res[QStringLiteral("message")] = QStringLiteral("Cannot open %1").arg(filePath);
+        return res;
+    }
+    const QByteArray raw = file.readAll();
+    file.close();
+    const std::string text(raw.constData(), size_t(raw.size()));
+
+    // boulderx::parse_swdm reads BOTH dialects, so an older boulder sheet opens
+    // here (upgraded to a uniform slab) and a BoulderX sheet keeps its relief.
+    boulderx::SwdmDocument doc;
+    if (!boulderx::parse_swdm(text, doc)) {
+        res[QStringLiteral("message")] = QStringLiteral("Not a usable ground mesh sheet: %1")
+                                             .arg(filePath);
+        return res;
+    }
+
+    QVariantList points;
+    for (const auto& n : doc.outline) {
+        QVariantMap p;
+        p[QStringLiteral("x")] = n.x;
+        p[QStringLiteral("y")] = n.y;
+        p[QStringLiteral("front")] = n.front_depth;
+        p[QStringLiteral("back")] = n.back_depth;
+        points.append(p);
+    }
+
+    double front = doc.outline.front().front_depth;
+    double back = doc.outline.front().back_depth;
+    for (const auto& n : doc.outline) {
+        front = std::max(front, n.front_depth);
+        back = std::min(back, n.back_depth);
+    }
+
+    res[QStringLiteral("ok")] = true;
+    res[QStringLiteral("dialect")] = doc.from_boulder_dialect ? QStringLiteral("boulder")
+                                                             : QStringLiteral("boulderx");
+    res[QStringLiteral("points")] = points;
+    res[QStringLiteral("minDepth")] = back;
+    res[QStringLiteral("maxDepth")] = front;
+    res[QStringLiteral("surfaceWidth")] = doc.params.surface_width;
+    res[QStringLiteral("meshType")] = doc.params.mesh_type;
+    res[QStringLiteral("randomSeed")] = double(doc.params.random_seed);
+    res[QStringLiteral("hasDomeHats")] = doc.has_dome_hats;
+    res[QStringLiteral("topTexture")] = QString::fromStdString(doc.params.surface_texture);
+    res[QStringLiteral("frontTexture")] = QString::fromStdString(doc.params.front_texture);
+    res[QStringLiteral("identifier")] = QString::fromStdString(doc.identifier);
+    res[QStringLiteral("message")] = doc.from_boulder_dialect
+        ? QStringLiteral("Loaded a Boulder sheet (uniform Z) → %1").arg(filePath)
+        : QStringLiteral("Loaded a BoulderX sheet (per-node Z) → %1").arg(filePath);
+    return res;
+}
+
+QVariantList RubyToolsBridge::randomiseTerrainRelief(const QVariantList& points,
+                                                    double frontMax, double backMax,
+                                                    int seed, int objectSeed) {
+    std::vector<boulderx::Node> outline = outline_from_points(points, frontMax, -std::fabs(backMax));
+
+    // The same "pick one from the object's seed" rule the in-scene editor uses,
+    // so a relief the modder liked can be reproduced from its seed either way.
+    const uint32_t s = seed < 0 ? uint32_t(objectSeed) * 1664525u + 1013904223u
+                                : uint32_t(seed);
+    boulderx::randomise_node_depths(outline, frontMax, std::fabs(backMax), s ? s : 1u);
+
+    QVariantList out;
+    for (const auto& n : outline) {
+        QVariantMap p;
+        p[QStringLiteral("x")] = n.x;
+        p[QStringLiteral("y")] = n.y;
+        p[QStringLiteral("front")] = n.front_depth;
+        p[QStringLiteral("back")] = n.back_depth;
+        out.append(p);
+    }
+    return out;
 }
 
 } // namespace ruby::android

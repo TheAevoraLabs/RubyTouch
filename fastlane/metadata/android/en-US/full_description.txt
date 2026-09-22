@@ -1,4 +1,4 @@
-Ruby Touch (also known as Ruby Mobile) is a standalone mobile 3D scene studio and terrain editor designed for Swordigo. Engineered natively in C++20 and Qt 6 with OpenGL ES 3.0 hardware acceleration, Ruby Touch delivers desktop-grade level editing and biome inspection directly on Android tablets and smartphones.
+Ruby Touch is a standalone mobile 3D scene studio and terrain editor designed for Swordigo. Engineered natively in C++20 and Qt 6 with OpenGL ES 3.0 hardware acceleration, Ruby Touch delivers desktop-grade level editing and biome inspection directly on Android tablets and smartphones.
 
 Features:
 
