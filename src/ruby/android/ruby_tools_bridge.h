@@ -20,6 +20,7 @@ public:
     Q_INVOKABLE void convertModelAdvanced(const QVariantMap& options);
     Q_INVOKABLE bool generateGroundMesh(const QString& rbmPath);
     Q_INVOKABLE bool batchConvertTextures(const QString& folderPath, const QString& targetFormat);
+    Q_INVOKABLE QVariantMap generateScene(const QVariantMap& options);
     Q_INVOKABLE bool exportSwdm(const QString& filePath, const QVariantList& polygonPoints,
                                 double minDepth, double maxDepth,
                                 const QString& topTexture, const QString& frontTexture,
@@ -54,12 +55,16 @@ public:
 
     // One "randomise terrain Z" pass, over the same generator the editors use
     // (boulderx::randomise_node_depths), so the studio and the in-scene mesh
-    // editor produce identical relief for identical input instead of two
-    // different randoms. `points` are {x, y} maps; the result adds `front` /
-    // `back`. seed < 0 picks one from `objectSeed`.
+    // editor produce identical relief for the same input and seed instead of two
+    // different randoms. `points` are {x, y[, front, back]} maps; the result adds
+    // `front` / `back` per node.
+    //
+    // The seed is owned by the CALLER: it is what the UI shows, and re-entering
+    // it must reproduce this terrain. seed <= 0 is normalised to 1 rather than
+    // drawing a hidden random one, so an unseeded call is still reproducible.
     Q_INVOKABLE QVariantList randomiseTerrainRelief(const QVariantList& points,
                                                     double frontMax, double backMax,
-                                                    int seed, int objectSeed);
+                                                    int seed);
 
     // Documentation & Modding Guides
     Q_INVOKABLE QString loadDocMarkdown(const QString& docId);
