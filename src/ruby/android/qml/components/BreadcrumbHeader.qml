@@ -122,7 +122,7 @@ Rectangle {
 
             IconButton {
                 id: playEngineBtn
-                visible: typeof rubyFileModel !== "undefined" && rubyFileModel && rubyFileModel.isResourceRoot
+                visible: typeof rubyFileModel !== "undefined" && rubyFileModel && rubyFileModel.isResourceRoot && rubyFileModel.playInGameAvailable
                 anchors.verticalCenter: parent.verticalCenter
                 iconName: "play"
                 variant: "soft"

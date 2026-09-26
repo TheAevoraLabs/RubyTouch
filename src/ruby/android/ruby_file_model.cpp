@@ -664,7 +664,22 @@ bool RubyFileModel::checkSwordigoResourceRoot(const QString& dirPath) {
     return (hits >= 3);
 }
 
+bool RubyFileModel::isPlayInGameAvailable() const {
+#ifdef RUBY_FOSS_COMPLIANT
+    return false; // play-in-game needs the proprietary GlossHook engine
+#else
+    return true;
+#endif
+}
+
 void RubyFileModel::launchGame() {
+#ifdef RUBY_FOSS_COMPLIANT
+    // FOSS flavor: the in-engine runner needs the proprietary GlossHook
+    // library, which this build excludes. The play button is hidden in QML
+    // via playInGameAvailable; this is a backstop.
+    emit statusMessage(QStringLiteral("Play in game needs the full release — this FOSS build excludes the proprietary GlossHook engine."));
+    return;
+#endif
     QString resDir = m_currentDir.absolutePath();
     if (!QFile::exists(resDir + QStringLiteral("/hiro.POD")) &&
         QFile::exists(resDir + QStringLiteral("/resources/hiro.POD"))) {
@@ -709,6 +724,13 @@ bool RubyFileModel::canStartSceneInGame(const QString& scenePath) const {
 }
 
 bool RubyFileModel::startSceneInGame(const QString& scenePath) {
+#ifdef RUBY_FOSS_COMPLIANT
+    // FOSS flavor: direct scene boot needs the proprietary GlossHook engine.
+    // The context-menu entry is hidden in QML via playInGameAvailable.
+    Q_UNUSED(scenePath);
+    emit statusMessage(QStringLiteral("Start scene in game needs the full release — this FOSS build excludes the proprietary GlossHook engine."));
+    return false;
+#endif
     QFileInfo fi(scenePath);
     if (!canStartSceneInGame(scenePath)) {
         emit statusMessage(QStringLiteral("Not a scene file: ") + scenePath);

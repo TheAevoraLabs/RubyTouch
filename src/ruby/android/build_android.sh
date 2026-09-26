@@ -72,6 +72,16 @@ echo "Platform:   android-36"
 TARGET_ABI="${RUBY_TARGET_ABI:-}"
 ABIS=("arm64-v8a")
 
+# Build flavors:
+#   default      → full build (links proprietary libGlossHook.so, all features)
+#   --foss       → FOSS-compliant build (no proprietary blobs; GlossHook API
+#                  stubbed out, play-in-game feature compiled out). This is the
+#                  flavor submitted to IzzyOnDroid / F-Droid.
+#   Full releases for our own first-party distribution (Discord/MediaFire)
+#   always use the default flavor.
+FOSS_CMAKE_FLAG="-DRUBY_FOSS_COMPLIANT=OFF"
+FOSS_APK_SUFFIX=""
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --abi)
@@ -80,6 +90,12 @@ while [[ $# -gt 0 ]]; do
             ;;
         --all-abis)
             ABIS=("arm64-v8a" "armeabi-v7a" "x86_64" "x86")
+            shift
+            ;;
+        --foss)
+            FOSS_CMAKE_FLAG="-DRUBY_FOSS_COMPLIANT=ON"
+            FOSS_APK_SUFFIX="-foss"
+            echo "[*] FOSS-compliant build selected (no proprietary GlossHook)"
             shift
             ;;
         *)
@@ -296,7 +312,8 @@ for ABI in "${ABIS[@]}"; do
         -DCMAKE_PREFIX_PATH="${QT_ABI_DIR}" \
         -DQT_HOST_PATH="${QT_HOST_DIR}" \
         -DQt6_DIR="${QT_ABI_DIR}/lib/cmake/Qt6" \
-        -DRUBY_BUILD_VERSION="${RUBY_VERSION_NAME:-v1.4}"
+        -DRUBY_BUILD_VERSION="${RUBY_VERSION_NAME:-v1.4}" \
+        "${FOSS_CMAKE_FLAG}"
 
     cmake --build "${ABI_BUILD_DIR}" --config Release -j"$(nproc)"
     LIBRUBY_SO="$(find "${ABI_BUILD_DIR}" -name "libruby.so" | head -n 1)"
@@ -491,17 +508,26 @@ done < <(find "${JAVA_OUT}" -name "*.class" -print0)
 (cd "${PACKAGE_DIR}" && zip -r -u "${BUILD_ROOT}/unaligned.apk" lib assets)
 
 # Align APK
-FINAL_APK_NAME="${RUBY_APK_NAME:-RubyTouch-${ABIS[0]}.apk}"
+FINAL_APK_NAME="${RUBY_APK_NAME:-RubyTouch${FOSS_APK_SUFFIX}-${ABIS[0]}.apk}"
 FINAL_APK="${PROJECT_ROOT}/bin/${FINAL_APK_NAME}"
 mkdir -p "${PROJECT_ROOT}/bin"
 "${ZIPALIGN}" -f 4 "${BUILD_ROOT}/unaligned.apk" "${FINAL_APK}"
 
-# Debug signing if keystore available or generate ephemeral debug key
-KEYSTORE="${BUILD_ROOT}/debug.keystore"
-if [ ! -f "${KEYSTORE}" ]; then
-    keytool -genkey -v -keystore "${KEYSTORE}" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+# Signing: use a persistent release keystore when RUBY_KEYSTORE_PATH points at
+# one, otherwise fall back to the legacy ephemeral debug key.
+if [ -n "${RUBY_KEYSTORE_PATH:-}" ] && [ -f "${RUBY_KEYSTORE_PATH}" ]; then
+    RUBY_KEY_ALIAS="${RUBY_KEY_ALIAS:-rubytouch}"
+    RUBY_KEY_PASS="${RUBY_KEY_PASS:-${RUBY_KEYSTORE_PASS}}"
+    echo "[*] Signing with release keystore ${RUBY_KEYSTORE_PATH} (alias ${RUBY_KEY_ALIAS})"
+    "${APKSIGNER}" sign --ks "${RUBY_KEYSTORE_PATH}" --ks-pass "pass:${RUBY_KEYSTORE_PASS}" --ks-key-alias "${RUBY_KEY_ALIAS}" --key-pass "pass:${RUBY_KEY_PASS}" "${FINAL_APK}"
+else
+    # Debug signing if keystore available or generate ephemeral debug key
+    KEYSTORE="${BUILD_ROOT}/debug.keystore"
+    if [ ! -f "${KEYSTORE}" ]; then
+        keytool -genkey -v -keystore "${KEYSTORE}" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+    fi
+    "${APKSIGNER}" sign --ks "${KEYSTORE}" --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android "${FINAL_APK}"
 fi
-"${APKSIGNER}" sign --ks "${KEYSTORE}" --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android "${FINAL_APK}"
 
 echo "[✓] Successfully built APK: ${FINAL_APK}"
 

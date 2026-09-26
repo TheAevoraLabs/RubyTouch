@@ -1,0 +1,1 @@
+Release 1.4.1: New FOSS-compliant build flavor (--foss) with zero proprietary dependencies — GlossHook API stubbed out and play-in-game feature compiled out. Full release key signing (persistent keystore support in build_android.sh).

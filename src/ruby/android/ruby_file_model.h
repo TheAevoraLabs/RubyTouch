@@ -131,6 +131,11 @@ public:
     Q_INVOKABLE void clearRecentFiles();
 
     // ── Direct Game Engine Launch ───────────────────────────────────────
+    // False in FOSS-compliant builds: play-in-game needs the proprietary
+    // GlossHook engine, which FOSS builds exclude. QML binds button/menu
+    // visibility to this.
+    Q_PROPERTY(bool playInGameAvailable READ isPlayInGameAvailable CONSTANT)
+    bool isPlayInGameAvailable() const;
     bool isResourceRoot() const { return m_isResourceRoot; }
     Q_INVOKABLE void launchGame();
 

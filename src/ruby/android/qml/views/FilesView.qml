@@ -466,7 +466,7 @@ Item {
 
             MenuRow {
                 width: parent.width
-                visible: contextSheet.targetFileType === "scene"
+                visible: contextSheet.targetFileType === "scene" && rubyFileModel.playInGameAvailable
                 iconName: "play"
                 accent: true
                 text: qsTr("Start Scene in Game")

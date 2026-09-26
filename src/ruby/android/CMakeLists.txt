@@ -107,6 +107,14 @@ set(RUBY_MOBILE_SOURCES
     ${HOST_LUA_SRCS}
 )
 
+# ── FOSS-compliant flavor ───────────────────────────────────────────────────
+# ON  → build without the proprietary GlossHook prebuilt: GlossHook API calls
+#        become no-op stubs (runner/gloss_foss_stub.c) and the play-in-game
+#        feature is compiled out of the UI. Zero non-free dependencies.
+# OFF → full build (default): links the prebuilt libGlossHook.so and enables
+#        every feature. Used for our own first-party distribution.
+option(RUBY_FOSS_COMPLIANT "Build FOSS-compliant flavor without proprietary GlossHook" OFF)
+
 if (ANDROID)
     # Qt6 on Android creates a shared library loaded by QtActivity
     add_library(ruby SHARED ${RUBY_MOBILE_SOURCES})
@@ -168,27 +176,42 @@ if (ANDROID)
     set_property(TARGET ruby PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
     # ── Swordigo In-Engine Runner (GlossHook VFS) ───────────────────────────
-    add_library(GlossHook SHARED IMPORTED)
-    set_target_properties(GlossHook PROPERTIES
-        IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/libs/${ANDROID_ABI}/libGlossHook.so"
-    )
+    # Full builds link the proprietary prebuilt libGlossHook.so; FOSS builds
+    # skip it entirely and compile the no-op API stubs instead.
+    if (NOT RUBY_FOSS_COMPLIANT)
+        add_library(GlossHook SHARED IMPORTED)
+        set_target_properties(GlossHook PROPERTIES
+            IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/libs/${ANDROID_ABI}/libGlossHook.so"
+        )
+    endif()
 
     set(RUBY_RUNNER_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/runner_vfs.c
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/runner_scene.c
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/runner_jni.c
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/stdstring.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/runner/gloss_foss_stub.c
     )
     add_library(ruby_runner SHARED ${RUBY_RUNNER_SOURCES})
     target_include_directories(ruby_runner PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/runner
     )
-    target_link_libraries(ruby_runner PRIVATE
-        GlossHook
-        ZLIB::ZLIB
-        android
-        log
-    )
+    if (RUBY_FOSS_COMPLIANT)
+        target_compile_definitions(ruby_runner PRIVATE RUBY_FOSS_COMPLIANT)
+        target_compile_definitions(ruby PRIVATE RUBY_FOSS_COMPLIANT)
+        target_link_libraries(ruby_runner PRIVATE
+            ZLIB::ZLIB
+            android
+            log
+        )
+    else()
+        target_link_libraries(ruby_runner PRIVATE
+            GlossHook
+            ZLIB::ZLIB
+            android
+            log
+        )
+    endif()
 else()
     find_package(OpenGL REQUIRED)
     target_link_libraries(ruby PRIVATE OpenGL::GL)
