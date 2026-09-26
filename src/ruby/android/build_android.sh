@@ -487,7 +487,7 @@ while IFS= read -r -d '' src; do
     JAVA_SRCS+=("${src}")
 done < <(find "${QT_SRC_DIR}" -name "*.java" -print0)
 
-javac -source 11 -target 11 -cp "${ANDROID_JAR}${QT_CP}" \
+javac -encoding UTF-8 -source 11 -target 11 -cp "${ANDROID_JAR}${QT_CP}" \
     -d "${JAVA_OUT}" \
     "${JAVA_SRCS[@]}"
 
