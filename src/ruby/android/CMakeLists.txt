@@ -30,6 +30,8 @@ endforeach()
 set(RUBY_MOBILE_SOURCES
     # Mobile-first modular UI & Android platform entry (Qt Quick + Material 3)
     ${CMAKE_CURRENT_SOURCE_DIR}/main_mobile.cpp
+    # aqt Qt 6.6.3 Android QtCore lacks qt_resourceFeatureZstd (see the file)
+    ${CMAKE_CURRENT_SOURCE_DIR}/qt_zstd_feature_fix.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ruby_file_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ruby_audio_bridge.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ruby_texture_provider.cpp
