@@ -3,6 +3,19 @@
 All notable changes to the Ruby Touch (Ruby Mobile) Android application and modding studio.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and follows the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format.
 
+> **Repository move (2026-09-26):** development moved from GitHub (`TheAevoraLabs`, terminated by automated moderation) to GitLab — [AevoralabsIN/RubyTouch](https://gitlab.com/AevoralabsIN/RubyTouch) — with a mirror at [quantumcreeper/RubyTouch](https://codeberg.org/quantumcreeper/RubyTouch). `github.com` links in older entries below are historical.
+
+---
+
+## [1.4.1] - 2026-09-26
+
+### Added
+- **FOSS build flavor** (`./build_android.sh --foss`): compiles out the proprietary GlossHook dependency entirely — zero proprietary libraries in the APK. The play-in-game and start-scene-in-game features are disabled (their buttons hidden via `playInGameAvailable`); all other features work identically.
+- **Persistent release signing**: `build_android.sh` now accepts `RUBY_KEYSTORE_PATH` / `RUBY_KEYSTORE_PASS` / `RUBY_KEY_ALIAS` / `RUBY_KEY_PASS` for a stable release key, falling back to the previous ephemeral debug key when unset.
+
+### Fixed
+- Build-environment fixes: define `qt_resourceFeatureZstd` (missing from aqt's Qt 6.6.3 Android binaries) and pass `-encoding UTF-8` to `javac`.
+
 ---
 
 ## [1.4] - 2026-09-25

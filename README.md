@@ -4,11 +4,13 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%2024%2B-green.svg)](https://developer.android.com)
 [![Architecture](https://img.shields.io/badge/Architecture-ARM64--v8a%20%7C%20armeabi--v7a%20%7C%20x86__64-orange.svg)](#architecture)
 [![UI Framework](https://img.shields.io/badge/UI-Qt%206.6%20Quick%20%2F%20QML-41cd52.svg)](https://www.qt.io/)
-[![Upstream](https://img.shields.io/badge/Upstream-SwordigoDesktop-informational.svg)](https://github.com/TheAevoraLabs/SwordigoDesktop)
+[![Upstream](https://img.shields.io/badge/Upstream-SwordigoDesktop-informational.svg)](https://gitlab.com/AevoralabsIN/SwordigoDesktop)
 
 Ruby Touch is a high-performance, standalone mobile 3D scene studio and terrain editor tailored for Swordigo modders and level designers. Built entirely in modern C++20 and Qt 6 with OpenGL ES 3.0, Ruby Touch brings precision 3D viewport navigation, interactive ground mesh vertex editing, and in-place biome texturing to Android devices.
 
-> **Upstream Project Notice**: Ruby Touch is the dedicated mobile distribution and mirror repository for the mobile 3D editor component of [SwordigoDesktop](https://github.com/TheAevoraLabs/SwordigoDesktop). All core engine improvements, tools, and bug fixes are maintained upstream and mirrored here for standalone mobile packaging and F-Droid distribution.
+> **Upstream Project Notice**: Ruby Touch is the dedicated mobile distribution and mirror repository for the mobile 3D editor component of [SwordigoDesktop](https://gitlab.com/AevoralabsIN/SwordigoDesktop). All core engine improvements, tools, and bug fixes are maintained upstream and mirrored here for standalone mobile packaging and F-Droid distribution.
+>
+> **Repository homes**: primary development happens on [GitLab](https://gitlab.com/AevoralabsIN/RubyTouch), with a mirror on [Codeberg](https://codeberg.org/quantumcreeper/RubyTouch). Our previous GitHub organisation was terminated by automated moderation, so `github.com` links in older documents are historical.
 
 ---
 
@@ -74,26 +76,47 @@ RubyTouch/
 
 ### Prerequisites
 - Android SDK (API 34 or later) with Build-Tools 35.0.0+
-- Android NDK (r25b or later; tested with r28)
-- Qt 6.6.3 for Android (ARM64-v8a target)
+- Android NDK (r25b or later; tested with r28c)
+- Qt 6.6.3 for Android (`android_arm64_v8a` and/or `android_armv7`) plus host tools (`gcc_64`)
 - CMake 3.22+ and Ninja
 - JDK 17
+
+Qt can be installed with [aqtinstall](https://aqtinstall.readthedocs.io/):
+
+```bash
+pip install aqtinstall
+aqt install-qt linux android 6.6.3 android_arm64_v8a android_armv7 -O ~/Qt
+aqt install-qt linux desktop 6.6.3 gcc_64 -O ~/Qt
+```
+
+### Build flavors
+
+| Flavor | Command | Notes |
+|---|---|---|
+| FOSS | `./build_android.sh --foss --abi arm64-v8a` | Zero proprietary dependencies. The play-in-game / start-scene-in-game features (which need the proprietary GlossHook library) are compiled out and their buttons hidden; everything else works identically. |
+| Full | `./build_android.sh --abi arm64-v8a` | All features, including play-in-game. Requires the proprietary GlossHook prebuilt at `libs/<abi>/libGlossHook.so` (not shipped in this repo). |
 
 ### Build Commands
 
 ```bash
-# Clone the repository
-git clone https://github.com/TheAevoraLabs/RubyTouch.git
+# Clone the repository (GitLab primary, Codeberg mirror)
+git clone https://gitlab.com/AevoralabsIN/RubyTouch.git
 cd RubyTouch
 
-# Build native shared libraries and package the APK
-./build_android.sh
+# Point the build at your SDK and Qt
+export ANDROID_SDK_ROOT=~/Android/Sdk
+export QT_DIR=~/Qt            # must contain 6.6.3/android_arm64_v8a, 6.6.3/gcc_64, ...
+export PATH=/usr/lib/jvm/java-17-openjdk/bin:$PATH
 
-# Or build for all architectures (arm64-v8a, armeabi-v7a, x86_64)
-./build_android.sh --all-abis
+# FOSS build for the default ABI (arm64-v8a)
+./build_android.sh --foss
+
+# Or pick an ABI / build all of them (arm64-v8a, armeabi-v7a, x86_64, x86)
+./build_android.sh --foss --abi armeabi-v7a
+./build_android.sh --foss --all-abis
 ```
 
-The compiled and signed APK will be output to bin/ruby_gg_mobile.apk. If an Android device is connected via ADB with USB debugging enabled, the script will automatically install and launch the application.
+Signed APKs are written to `bin/` (e.g. `bin/RubyTouch-foss-arm64-v8a.apk`). Without signing configuration the script falls back to an auto-generated debug key; for release builds set `RUBY_KEYSTORE_PATH`, `RUBY_KEYSTORE_PASS`, `RUBY_KEY_ALIAS` and `RUBY_KEY_PASS` to sign with your persistent key.
 
 ---
 

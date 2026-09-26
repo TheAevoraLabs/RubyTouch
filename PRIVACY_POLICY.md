@@ -1,11 +1,11 @@
 # Privacy Policy for Ruby Touch (Ruby Mobile)
 
 **Effective Date:** September 21, 2026  
-**Last Updated:** September 21, 2026  
+**Last Updated:** September 26, 2026  
 **Application Name:** Ruby Touch (also known as Ruby Mobile)  
 **Package Name:** `in.aevora.ruby`  
 **Developer / Organization:** The Aevora Labs / OpenSwordigo Contributors  
-**Source Code:** [https://github.com/TheAevoraLabs/RubyTouch](https://github.com/TheAevoraLabs/RubyTouch)  
+**Source Code:** [https://gitlab.com/AevoralabsIN/RubyTouch](https://gitlab.com/AevoralabsIN/RubyTouch)  
 **Contact Email:** [aevoralabsin@gmail.com](mailto:aevoralabsin@gmail.com)  
 
 ---
@@ -71,8 +71,8 @@ Ruby Touch complies with the Children's Online Privacy Protection Act (COPPA) an
 ## 7. Open Source Transparency
 
 Ruby Touch is free and open-source software licensed under the **GNU General Public License v3.0 (GPLv3)**. Our complete source code is publicly accessible and auditable by anyone:
-- [https://github.com/TheAevoraLabs/RubyTouch](https://github.com/TheAevoraLabs/RubyTouch)
-- Upstream: [https://github.com/TheAevoraLabs/SwordigoDesktop](https://github.com/TheAevoraLabs/SwordigoDesktop)
+- [https://gitlab.com/AevoralabsIN/RubyTouch](https://gitlab.com/AevoralabsIN/RubyTouch)
+- Upstream: [https://gitlab.com/AevoralabsIN/SwordigoDesktop](https://gitlab.com/AevoralabsIN/SwordigoDesktop)
 
 Security researchers and users are encouraged to review the code to independently verify our privacy commitments.
 
@@ -89,5 +89,5 @@ We may update this Privacy Policy from time to time to reflect changes in legal 
 If you have any questions, concerns, or inquiries regarding this Privacy Policy or our software, please contact us:
 
 - **Email:** [aevoralabsin@gmail.com](mailto:aevoralabsin@gmail.com)
-- **GitHub Issues:** [https://github.com/TheAevoraLabs/RubyTouch/issues](https://github.com/TheAevoraLabs/RubyTouch/issues)
-- **Organization:** [https://github.com/TheAevoraLabs](https://github.com/TheAevoraLabs)
+- **GitLab Issues:** [https://gitlab.com/AevoralabsIN/RubyTouch/-/issues](https://gitlab.com/AevoralabsIN/RubyTouch/-/issues)
+- **Organization:** [https://gitlab.com/AevoralabsIN](https://gitlab.com/AevoralabsIN)
