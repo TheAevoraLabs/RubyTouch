@@ -514,13 +514,54 @@ mkdir -p "${PROJECT_ROOT}/bin"
 "${ZIPALIGN}" -f 4 "${BUILD_ROOT}/unaligned.apk" "${FINAL_APK}"
 
 # Signing: use a persistent release keystore when RUBY_KEYSTORE_PATH points at
-# one, otherwise fall back to the legacy ephemeral debug key.
+# one, or discover it from search paths (e.g. /home/quantumcreeper/.rubysignkey).
+# Otherwise fall back to the legacy ephemeral debug key.
+if [ -z "${RUBY_KEYSTORE_PATH:-}" ] || [ ! -f "${RUBY_KEYSTORE_PATH}" ]; then
+    KEY_SEARCH_PATHS=(
+        "/home/quantumcreeper/.rubysignkey/rubytouch-release.jks"
+        "/home/quantumcreeper/.rubysignkey/rubytouch-release.keystore"
+        "${HOME}/.rubysignkey/rubytouch-release.jks"
+        "${HOME}/.rubysignkey/rubytouch-release.keystore"
+        "${HOME}/.android/rubytouch-release.jks"
+        "${HOME}/.android/rubytouch.keystore"
+    )
+    for candidate in "${KEY_SEARCH_PATHS[@]}"; do
+        if [ -f "${candidate}" ]; then
+            RUBY_KEYSTORE_PATH="${candidate}"
+            break
+        fi
+    done
+    if [ -z "${RUBY_KEYSTORE_PATH:-}" ] && [ -d "/home/quantumcreeper/.rubysignkey" ]; then
+        FOUND_KEY="$(find /home/quantumcreeper/.rubysignkey -maxdepth 2 -type f \( -name "*.jks" -o -name "*.keystore" \) 2>/dev/null | head -n 1 || true)"
+        if [ -n "${FOUND_KEY}" ] && [ -f "${FOUND_KEY}" ]; then
+            RUBY_KEYSTORE_PATH="${FOUND_KEY}"
+        fi
+    fi
+fi
+
+SIGNED_OK=0
 if [ -n "${RUBY_KEYSTORE_PATH:-}" ] && [ -f "${RUBY_KEYSTORE_PATH}" ]; then
     RUBY_KEY_ALIAS="${RUBY_KEY_ALIAS:-rubytouch}"
+    if [ -z "${RUBY_KEYSTORE_PASS:-}" ]; then
+        KEY_DIR="$(dirname "${RUBY_KEYSTORE_PATH}")"
+        for pass_file in "${KEY_DIR}/password.txt" "${KEY_DIR}/pass.txt" "${KEY_DIR}/key.pass" "${RUBY_KEYSTORE_PATH%.*}.pass"; do
+            if [ -f "${pass_file}" ]; then
+                RUBY_KEYSTORE_PASS="$(cat "${pass_file}" | tr -d '\r\n')"
+                break
+            fi
+        done
+        RUBY_KEYSTORE_PASS="${RUBY_KEYSTORE_PASS:-rubytouch}"
+    fi
     RUBY_KEY_PASS="${RUBY_KEY_PASS:-${RUBY_KEYSTORE_PASS}}"
     echo "[*] Signing with release keystore ${RUBY_KEYSTORE_PATH} (alias ${RUBY_KEY_ALIAS})"
-    "${APKSIGNER}" sign --ks "${RUBY_KEYSTORE_PATH}" --ks-pass "pass:${RUBY_KEYSTORE_PASS}" --ks-key-alias "${RUBY_KEY_ALIAS}" --key-pass "pass:${RUBY_KEY_PASS}" "${FINAL_APK}"
-else
+    if "${APKSIGNER}" sign --ks "${RUBY_KEYSTORE_PATH}" --ks-pass "pass:${RUBY_KEYSTORE_PASS}" --ks-key-alias "${RUBY_KEY_ALIAS}" --key-pass "pass:${RUBY_KEY_PASS}" "${FINAL_APK}"; then
+        SIGNED_OK=1
+    else
+        echo "[!] Release keystore signing returned non-zero. Falling back to debug key..."
+    fi
+fi
+
+if [ "${SIGNED_OK}" -eq 0 ]; then
     # Debug signing if keystore available or generate ephemeral debug key
     KEYSTORE="${BUILD_ROOT}/debug.keystore"
     if [ ! -f "${KEYSTORE}" ]; then
