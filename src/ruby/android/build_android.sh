@@ -62,6 +62,27 @@ APKSIGNER="$(which apksigner 2>/dev/null || echo "${BUILD_TOOLS_DIR}/apksigner")
 ADB="$(which adb 2>/dev/null || echo "${ANDROID_SDK_ROOT}/platform-tools/adb")"
 STRIP="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
 
+# R8 — the shrinking dexer. build-tools ships d8 but no R8 CLI, so it is found
+# from an Android Studio install instead. Override with RUBY_R8_JAR=/path/r8.jar.
+# Empty means "not found", and the dex step falls back to d8.
+R8_JAR="${RUBY_R8_JAR:-}"
+if [ -z "${R8_JAR}" ]; then
+    for candidate in \
+        "${ANDROID_SDK_ROOT}/../AndroidStudio/plugins/android/lib/r8.jar" \
+        "/run/media/quantumcreeper/TVPG/linuxFiles/Applications/AndroidStudio/plugins/android/lib/r8.jar" \
+        "${HOME}/android-studio/plugins/android/lib/r8.jar" \
+        "/opt/android-studio/plugins/android/lib/r8.jar" \
+        "/usr/lib/android-studio/plugins/android/lib/r8.jar" \
+        "/usr/share/android-studio/plugins/android/lib/r8.jar"; do
+        if [ -f "${candidate}" ]; then R8_JAR="${candidate}"; break; fi
+    done
+fi
+if [ -z "${R8_JAR}" ]; then
+    R8_JAR="$(find "${ANDROID_SDK_ROOT}/.." /opt /usr/lib /usr/share -maxdepth 6 \
+                -name 'r8.jar' -path '*plugins/android/lib/*' 2>/dev/null | head -n 1 || true)"
+fi
+JAVA_BIN="$(command -v java || echo java)"
+
 echo "=== Ruby GG Mobile Android Build System ==="
 echo "SDK:        ${ANDROID_SDK_ROOT}"
 echo "NDK:        ${ANDROID_NDK_ROOT}"
@@ -82,6 +103,12 @@ ABIS=("arm64-v8a")
 FOSS_CMAKE_FLAG="-DRUBY_FOSS_COMPLIANT=OFF"
 FOSS_APK_SUFFIX=""
 
+# R8 shrinking: on by default whenever an r8.jar is found, because the unshrunk
+# dex is ~2,092 classes of mostly-unused kotlin-stdlib and editor code. Pass
+# --no-r8 (or RUBY_R8=0) to force the old plain-d8 dex. See
+# src/ruby/android/proguard-rules.pro for the keep rules and why they matter.
+USE_R8="${RUBY_R8:-1}"
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --abi)
@@ -96,6 +123,14 @@ while [[ $# -gt 0 ]]; do
             FOSS_CMAKE_FLAG="-DRUBY_FOSS_COMPLIANT=ON"
             FOSS_APK_SUFFIX="-foss"
             echo "[*] FOSS-compliant build selected (no proprietary GlossHook)"
+            shift
+            ;;
+        --r8)
+            USE_R8=1
+            shift
+            ;;
+        --no-r8)
+            USE_R8=0
             shift
             ;;
         *)
@@ -457,7 +492,13 @@ fi
 if [ -n "${RUBY_VERSION_CODE:-}" ] || [ -n "${RUBY_VERSION_NAME:-}" ]; then
     AAPT2_LINK_CMD+=(--replace-version)
 fi
+GEN_JAVA_DIR="${BUILD_ROOT}/generated_java"
+rm -rf "${GEN_JAVA_DIR}"
+mkdir -p "${GEN_JAVA_DIR}"
+
 AAPT2_LINK_CMD+=(
+    --java "${GEN_JAVA_DIR}"
+    --extra-packages io.github.rosemoe.sora
     "${BUILD_ROOT}/compiled_res.zip"
     --auto-add-overlay
 )
@@ -479,6 +520,17 @@ for j in "${QT_JAR_DIR}"/*.jar; do
     fi
 done
 
+EXTRA_JAR_CP=""
+EXTRA_JARS=()
+if [ -d "${ANDROID_SRC_DIR}/libs/jars" ]; then
+    for j in "${ANDROID_SRC_DIR}/libs/jars"/*.jar; do
+        if [ -f "${j}" ]; then
+            EXTRA_JAR_CP="${EXTRA_JAR_CP}:${j}"
+            EXTRA_JARS+=("${j}")
+        fi
+    done
+fi
+
 JAVA_SRCS=()
 while IFS= read -r -d '' src; do
     JAVA_SRCS+=("${src}")
@@ -486,8 +538,13 @@ done < <(find "${ANDROID_SRC_DIR}/java" -name "*.java" -print0)
 while IFS= read -r -d '' src; do
     JAVA_SRCS+=("${src}")
 done < <(find "${QT_SRC_DIR}" -name "*.java" -print0)
+if [ -d "${GEN_JAVA_DIR}" ]; then
+    while IFS= read -r -d '' src; do
+        JAVA_SRCS+=("${src}")
+    done < <(find "${GEN_JAVA_DIR}" -name "*.java" -print0)
+fi
 
-javac -encoding UTF-8 -source 11 -target 11 -cp "${ANDROID_JAR}${QT_CP}" \
+javac -encoding UTF-8 -source 11 -target 11 -cp "${ANDROID_JAR}${QT_CP}${EXTRA_JAR_CP}" \
     -d "${JAVA_OUT}" \
     "${JAVA_SRCS[@]}"
 
@@ -499,7 +556,44 @@ while IFS= read -r -d '' cls; do
     CLASS_FILES+=("${cls}")
 done < <(find "${JAVA_OUT}" -name "*.class" -print0)
 
-"${D8}" --output "${DEX_DIR}" --lib "${ANDROID_JAR}" "${CLASS_FILES[@]}" "${QT_JAR_DIR}"/*.jar
+D8_EXTRA_ARGS=()
+if [ ${#EXTRA_JARS[@]} -gt 0 ]; then
+    D8_EXTRA_ARGS+=("${EXTRA_JARS[@]}")
+fi
+
+# ── Dex: R8 (shrinking) when available, else d8 (no shrinking) ─────────────
+# The unshrunk dex is 2,092 classes — 635 Sora editor, ~800 kotlin-stdlib,
+# 165 androidx, 101 Qt and only 87 of our own. R8 deletes what nothing can
+# reach; the keep rules in proguard-rules.pro protect JNI, the manifest
+# components, Qt's reflection and the editor wholesale.
+#
+# No --min-api is passed on purpose: the d8 fallback below is invoked without
+# one too, so R8's default desugaring matches what the d8 build produced.
+PG_CONF="${ANDROID_SRC_DIR}/proguard-rules.pro"
+R8_DONE=0
+if [ "${USE_R8}" -eq 1 ] && [ -n "${R8_JAR}" ] && [ -f "${R8_JAR}" ]; then
+    if [ ! -f "${PG_CONF}" ]; then
+        echo "[!] R8 found but ${PG_CONF} is missing; using d8 instead." >&2
+    else
+        echo "[*] Dexing with R8 (shrinking): ${R8_JAR}"
+        "${JAVA_BIN}" -cp "${R8_JAR}" com.android.tools.r8.R8 \
+            --release \
+            --lib "${ANDROID_JAR}" \
+            --pg-conf "${PG_CONF}" \
+            --output "${DEX_DIR}" \
+            "${CLASS_FILES[@]}" "${QT_JAR_DIR}"/*.jar "${D8_EXTRA_ARGS[@]}"
+        R8_DONE=1
+    fi
+fi
+if [ "${R8_DONE}" -ne 1 ]; then
+    if [ "${USE_R8}" -eq 1 ]; then
+        echo "[!] No r8.jar found; falling back to d8 (no shrinking)."
+        echo "    Set RUBY_R8_JAR=/path/to/r8.jar to enable shrinking."
+    else
+        echo "[*] Dexing with d8 (no shrinking) — requested with --no-r8."
+    fi
+    "${D8}" --output "${DEX_DIR}" --lib "${ANDROID_JAR}" "${CLASS_FILES[@]}" "${QT_JAR_DIR}"/*.jar "${D8_EXTRA_ARGS[@]}"
+fi
 
 # Add classes.dex to APK
 (cd "${DEX_DIR}" && zip -u "${BUILD_ROOT}/unaligned.apk" classes*.dex)

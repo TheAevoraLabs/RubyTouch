@@ -7,6 +7,7 @@
 #include <QVector>
 #include <QSet>
 #include <QString>
+#include <QPointer>
 #include <atomic>
 
 namespace ruby::android {
@@ -128,6 +129,7 @@ public:
     // ── Persistent Recent Files ─────────────────────────────────────────
     QVariantList recentFiles() const;
     Q_INVOKABLE void addRecentFile(const QString& path);
+    Q_INVOKABLE void removeRecentFile(const QString& path);
     Q_INVOKABLE void clearRecentFiles();
 
     // ── Direct Game Engine Launch ───────────────────────────────────────
@@ -163,12 +165,14 @@ signals:
 
 private:
     void reload();
+    void applyFilterAndSort();
     // Nearest ancestor of `startDir` that looks like a Swordigo resource root, or an empty
     // string. Used to hand GameActivity a resource directory the runner's VFS can serve.
     static QString findResourceRootFor(const QString& startDir);
     static QString detectFileType(const QFileInfo& fi);
     static QString formatSize(qint64 bytes);
     static bool passesCategory(const QFileInfo& fi, const QString& cat);
+    static bool passesCategorySuffix(const QString& ext, const QString& cat);
 
     static bool copy_dir_recursive(const QString& src, const QString& dst);
     static qint64 calculate_dir_size(const QString& dir_path, int& out_files, int& out_dirs);
@@ -176,6 +180,9 @@ private:
     QDir m_currentDir;
     QString m_filter;
     QVector<FileItem> m_items;
+    QVector<FileItem> m_allItems;
+    QDir m_lastLoadedDir;
+    bool m_lastShowHidden = false;
     QSet<QString> m_pinnedPaths;
 
     QString m_category = QStringLiteral("all");

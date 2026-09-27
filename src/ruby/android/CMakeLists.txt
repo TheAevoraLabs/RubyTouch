@@ -32,6 +32,10 @@ set(RUBY_MOBILE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/main_mobile.cpp
     # aqt Qt 6.6.3 Android QtCore lacks qt_resourceFeatureZstd (see the file)
     ${CMAKE_CURRENT_SOURCE_DIR}/qt_zstd_feature_fix.cpp
+    # The single stb_image implementation for this target (see the file). It has
+    # to live outside platform/embedded_assets.cpp, which this target no longer
+    # compiles.
+    ${CMAKE_CURRENT_SOURCE_DIR}/stb_image_impl.c
     ${CMAKE_CURRENT_SOURCE_DIR}/ruby_file_model.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ruby_audio_bridge.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ruby_texture_provider.cpp
@@ -103,7 +107,16 @@ set(RUBY_MOBILE_SOURCES
     ${SRC_DIR}/platform/font_fallback.cpp
     ${SRC_DIR}/platform/gdb_compat.cpp
     ${SRC_DIR}/platform/io_thread.cpp
-    ${SRC_DIR}/platform/embedded_assets.cpp
+    # NOTE: platform/embedded_assets.cpp is deliberately NOT compiled here.
+    # It is a 657k-line generated table of 183 assets (10 MB decoded): desktop
+    # launcher icons, biome background art, UI atlases, fonts. Every caller of
+    # embedded_asset()/asset_decode_image() is a desktop-only TU (launcher.cpp,
+    # launcher_ui.cpp, asset_viewer.cpp, map_editor.cpp, swordfare_gui.cpp,
+    # display.cpp, loading_screen.cpp) and none of them is in this target, so
+    # the whole table used to be linked into libruby.so as ~10 MB of .rodata the
+    # Android app can never reach. Desktop builds (cmake/components/*.cmake) still
+    # compile it, so nothing there changes. Re-add it here only if a mobile source
+    # starts calling embedded_asset().
     ${SRC_DIR}/platform/os_external.cpp
     ${SRC_DIR}/android/log.c
     ${HOST_LUA_SRCS}
@@ -190,6 +203,8 @@ if (ANDROID)
     set(RUBY_RUNNER_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/runner_vfs.c
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/runner_scene.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/runner/runner_music.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/runner/runner_crasher.c
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/runner_jni.c
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/stdstring.c
         ${CMAKE_CURRENT_SOURCE_DIR}/runner/gloss_foss_stub.c
@@ -205,6 +220,7 @@ if (ANDROID)
             ZLIB::ZLIB
             android
             log
+            dl
         )
     else()
         target_link_libraries(ruby_runner PRIVATE
@@ -212,6 +228,7 @@ if (ANDROID)
             ZLIB::ZLIB
             android
             log
+            dl
         )
     endif()
 else()
