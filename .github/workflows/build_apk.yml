@@ -5,7 +5,7 @@ on:
     branches:
       - master
     tags:
-      - 'v*'
+      - '*'
   pull_request:
     branches:
       - master
@@ -27,6 +27,13 @@ concurrency:
 jobs:
   metadata:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/') ||
+      contains(github.event.head_commit.message, '[ga]') ||
+      contains(github.event.head_commit.message, '[GA]') ||
+      contains(github.event.head_commit.message, '[release') ||
+      contains(github.event.head_commit.message, '[RELEASE')
     outputs:
       is_release: ${{ steps.meta.outputs.is_release }}
       release_tag: ${{ steps.meta.outputs.release_tag }}
@@ -68,7 +75,7 @@ jobs:
           IS_RELEASE=false
           RELEASE_TAG=""
 
-          if [[ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]]; then
+          if [[ "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
               IS_RELEASE=true
               RELEASE_TAG="${{ github.ref_name }}"
           elif [[ "${{ inputs.force_release }}" == "true" ]]; then
