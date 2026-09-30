@@ -111,3 +111,4 @@ Legal and license documentation is translated into 13 languages located in [.git
 Ruby Touch is free software licensed under the GNU General Public License v3.0 (GPLv3). See [LICENSE.md](LICENSE.md) for full terms and conditions.
 
 Copyright (C) 2026 The Lawncher Team & The Aevora Labs.
+
