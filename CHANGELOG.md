@@ -5,6 +5,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 > **Repository move (2026-09-26):** development moved from GitHub (`TheAevoraLabs`, terminated by automated moderation) to GitLab — [AevoralabsIN/RubyTouch](https://gitlab.com/AevoralabsIN/RubyTouch) — with a mirror at [quantumcreeper/RubyTouch](https://codeberg.org/quantumcreeper/RubyTouch). `github.com` links in older entries below are historical.
 
+## [1.4.4] - 2026-10-17
+
+### Added
+- **Interactive HSV Spectrum Color Picker in WaterMesh Studio**:
+  - Full continuous HSV spectrum slider + saturation/brightness canvas and quick fluid color swatches for deep body and surface crest colors.
+  - Interactive live preview and direct hex input with instant viewport shader sync.
+- **Deadly Fluid Hazard & Damage Control (`CollisionShapeComponent` + `DamageComponent`)**:
+  - Full integration of Swordigo's hazard collision pipeline: toggle deadly fluid (`InflictsDamage` / `SpecialType: 6`).
+  - Adjustable damage rate / amount (`MinDamage` / `MaxDamage`), damage type (Physical/Fire vs Magical), and immunity bypass (`IgnoreTargetImmunity`).
+  - Contact reaction triggers matching engine decompilation (`fireblast` woosh / `watersplash`).
+
+---
+
 ## [1.4.3] - 2026-10-17
 
 ### Added
