@@ -8,6 +8,15 @@ Navigate 3D scenes fluidly using dual on-screen floating thumbsticks designed fo
 Ground Mesh Studio
 Select, inspect, and edit terrain meshes directly inside the 3D viewport. Ruby Touch renders diamond vertex selection handles and wireframe outlines using hardware depth-tested shaders. Manipulate vertices in real time via ray-plane touch projection, add new control points, remove vertices, and apply structural mesh updates without geometric degradation.
 
+Volumetric WaterMesh Studio
+Multi-sheet water volume architecture generating recursive front and back sheets with zero depth-fighting. Synchronized multi-sheet edit mode transforms all companion sheets simultaneously. Authentic 4-corner rectangular box editor strictly conforming to Swordigo's BoundsShape engine parameters with 3D fluid cage overlay, animated wave crest, and HSV spectrum color picker.
+
+Index-FM Remastered File Manager
+High-performance mobile file manager with dual Grid and List view modes, batch operations (Copy, Cut, Delete, Select All), Places Drawer for rapid folder navigation, instant file preview modal with metadata inspection, and real-time search filter engine.
+
+Studio Dark UI & Theme Engine
+Clean edge-to-edge Material 3 mobile interface completely free of web clutter. 6 studio themes (Ruby Dark, Obsidian AMOLED, Cyber Synth, Emerald Grove, Royal Violet, Nord Frost), customizable studio identities with 7 vector avatars, and polished home navigation.
+
 Biome Texture Inspector
 Inspect and modify terrain surface (cap/grass) and cliff (front/wall) textures in place. Switch between authentic presets derived from game scenes, including Plains, Forest, Grove, Florennum, Wasteland, Snowy Peaks, Ice Castle, Volcano, Caves, and Crypt. Create and persist custom modder biome presets via device storage.
 
