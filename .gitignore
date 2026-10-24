@@ -6,6 +6,7 @@ binw/
 *.apk
 *.aab
 *.so
+!src/ruby/android/assets/**/*.so
 *.dex
 *.zip
 *.tar.gz
